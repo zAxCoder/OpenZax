@@ -1,0 +1,21 @@
+[package]
+name = "openzax-wasm-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+openzax-core = { path = "../core" }
+wasmtime = "27.0"
+wasmtime-wasi = "27.0"
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+wat = "1.0"
