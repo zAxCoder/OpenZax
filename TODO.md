@@ -100,19 +100,26 @@
 
 ## Phase 2 — Ecosystem (Months 5-7)
 
-### Month 5: Skills SDK v1.0
-- [ ] Rust SDK crate with proc macros
+### Month 5: Skills SDK v1.0 🚧 IN PROGRESS
+- [x] Rust SDK crate with proc macros
+  - [x] openzax-skills-macros crate
+  - [x] #[skill_main] macro
+  - [x] #[derive(Skill)] macro
+  - [x] SkillContext API
+  - [x] Error types and handling
+  - [x] SkillManifest builder
 - [ ] TypeScript SDK (ComponentizeJS)
 - [ ] Python SDK (componentize-py)
-- [ ] CLI commands
-  - [ ] openzax skill init
-  - [ ] openzax skill build
-  - [ ] openzax skill test
+- [x] CLI commands
+  - [x] openzax skill init (Rust only)
+  - [x] openzax skill build
+  - [x] openzax skill test
   - [ ] openzax skill pack
   - [ ] openzax skill sign
   - [ ] openzax skill publish
 - [ ] Test harness with mock host
 - [ ] Documentation generator from WIT
+- [x] Skills SDK Guide documentation
 
 ### Month 6: Marketplace Backend
 - [ ] REST API (axum)
@@ -152,7 +159,8 @@
 ## Documentation Needed
 - [x] WASM Runtime Guide
 - [x] WIT Interface Definitions
-- [ ] MCP Client Guide
+- [x] MCP Client Guide (partial)
+- [x] Skills SDK Guide
 - [ ] Local LLM Setup Guide
 - [ ] Skill Development Tutorial
 - [ ] API Documentation (rustdoc)
@@ -163,21 +171,26 @@
 
 ## Current Status
 
-**Phase 1 - Month 4 (Command Palette + Chat UI): ✅ 100% COMPLETED**
+**Phase 2 - Month 5 (Skills SDK v1.0): 🚧 60% COMPLETED**
 
 Successfully implemented:
-- ✅ Complete Tauri v2 desktop application
-- ✅ Leptos UI framework with reactive components
-- ✅ Command palette with keyboard navigation
-- ✅ Multi-panel workspace layout (4 panels)
-- ✅ Chat UI with streaming support
-- ✅ Markdown rendering with code blocks
-- ✅ Settings page with configuration
-- ✅ Comprehensive styling (Midnight theme)
+- ✅ Rust SDK with proc macros
+- ✅ SkillContext API with logging, config, fs, http
+- ✅ Error handling with SkillError types
+- ✅ CLI commands: init, build, test
+- ✅ Skill project scaffolding
+- ✅ Skills SDK documentation
+
+In Progress:
+- 🚧 TypeScript SDK (deferred to later in Phase 2)
+- 🚧 Python SDK (deferred to later in Phase 2)
+- 🚧 Pack, sign, publish commands (requires marketplace)
+- 🚧 Test harness with mock host
+- 🚧 Documentation generator from WIT
 
 **Phase 1 Complete! All 4 months finished ✅**
 
-**Next: Phase 2 - Ecosystem (Months 5-7)**
+**Next: Continue Phase 2 - Skills SDK completion and Marketplace Backend**
 
 Ready to implement:
 - Skills SDK v1.0 (Rust, TypeScript, Python)

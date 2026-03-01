@@ -54,8 +54,74 @@ enum Commands {
     #[command(subcommand)]
     Model(ModelCommands),
 
+    /// Skill management commands
+    #[command(subcommand)]
+    Skill(SkillCommands),
+
     /// Display version information
     Version,
+}
+
+#[derive(Subcommand)]
+enum SkillCommands {
+    /// Initialize a new skill project
+    Init {
+        /// Skill name
+        name: String,
+
+        /// Programming language (rust, typescript, python)
+        #[arg(short, long, default_value = "rust")]
+        language: String,
+
+        /// Output directory
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Build a skill to WASM
+    Build {
+        /// Skill directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Release build
+        #[arg(short, long)]
+        release: bool,
+    },
+
+    /// Test a skill
+    Test {
+        /// Skill directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
+
+    /// Pack a skill for distribution
+    Pack {
+        /// Skill directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Output file
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Sign a skill package
+    Sign {
+        /// Skill package path
+        package: PathBuf,
+
+        /// Private key path
+        #[arg(short, long)]
+        key: PathBuf,
+    },
+
+    /// Publish a skill to marketplace
+    Publish {
+        /// Skill package path
+        package: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -158,6 +224,10 @@ async fn main() -> anyhow::Result<()> {
             ui::print_banner();
             handle_model_command(model_cmd).await?;
         }
+        Some(Commands::Skill(skill_cmd)) => {
+            ui::print_banner();
+            handle_skill_command(skill_cmd).await?;
+        }
         Some(Commands::Version) => {
             ui::print_banner();
             println!("  {} {}", "Version:".bright_white().dimmed(), env!("CARGO_PKG_VERSION").bright_cyan().bold());
@@ -176,6 +246,229 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    Ok(())
+}
+
+async fn handle_skill_command(cmd: SkillCommands) -> anyhow::Result<()> {
+    use std::io::Write;
+
+    match cmd {
+        SkillCommands::Init { name, language, output } => {
+            let output_dir = output.unwrap_or_else(|| PathBuf::from(&name));
+            
+            ui::print_info(&format!("Creating new {} skill: {}", language, name));
+            println!();
+            
+            match language.as_str() {
+                "rust" => create_rust_skill(&name, &output_dir)?,
+                "typescript" | "ts" => {
+                    ui::print_error("TypeScript skills coming soon!");
+                    println!();
+                    ui::print_info("For now, use Rust skills with: openzax skill init --language rust");
+                    println!();
+                    return Ok(());
+                }
+                "python" | "py" => {
+                    ui::print_error("Python skills coming soon!");
+                    println!();
+                    ui::print_info("For now, use Rust skills with: openzax skill init --language rust");
+                    println!();
+                    return Ok(());
+                }
+                _ => {
+                    ui::print_error(&format!("Unsupported language: {}", language));
+                    println!();
+                    ui::print_info("Supported languages: rust, typescript, python");
+                    println!();
+                    return Ok(());
+                }
+            }
+            
+            println!();
+            ui::print_info(&format!("✓ Skill created at: {}", output_dir.display()));
+            println!();
+            println!("  {} Next steps:", "→".bright_cyan());
+            println!("    cd {}", name);
+            println!("    openzax skill build");
+            println!();
+        }
+        SkillCommands::Build { path, release } => {
+            ui::print_info(&format!("Building skill at: {}", path.display()));
+            println!();
+            
+            let build_mode = if release { "release" } else { "debug" };
+            ui::print_info(&format!("Build mode: {}", build_mode));
+            
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.arg("build")
+                .arg("--target")
+                .arg("wasm32-wasip1")
+                .current_dir(&path);
+            
+            if release {
+                cmd.arg("--release");
+            }
+            
+            let status = cmd.status()?;
+            
+            if status.success() {
+                println!();
+                ui::print_info("✓ Build successful!");
+                println!();
+                
+                let wasm_path = path.join("target/wasm32-wasip1").join(build_mode);
+                ui::print_info(&format!("WASM output: {}", wasm_path.display()));
+                println!();
+            } else {
+                ui::print_error("Build failed!");
+                std::process::exit(1);
+            }
+        }
+        SkillCommands::Test { path } => {
+            ui::print_info(&format!("Testing skill at: {}", path.display()));
+            println!();
+            
+            let status = std::process::Command::new("cargo")
+                .arg("test")
+                .current_dir(&path)
+                .status()?;
+            
+            if !status.success() {
+                ui::print_error("Tests failed!");
+                std::process::exit(1);
+            }
+        }
+        SkillCommands::Pack { path, output } => {
+            ui::print_info(&format!("Packing skill at: {}", path.display()));
+            println!();
+            ui::print_error("Pack feature coming soon!");
+            println!();
+        }
+        SkillCommands::Sign { package, key } => {
+            ui::print_info(&format!("Signing package: {}", package.display()));
+            println!();
+            ui::print_error("Sign feature coming soon!");
+            println!();
+        }
+        SkillCommands::Publish { package } => {
+            ui::print_info(&format!("Publishing package: {}", package.display()));
+            println!();
+            ui::print_error("Publish feature coming soon (requires marketplace backend)!");
+            println!();
+        }
+    }
+    
+    Ok(())
+}
+
+fn create_rust_skill(name: &str, output_dir: &PathBuf) -> anyhow::Result<()> {
+    use std::fs;
+    
+    // Create directory structure
+    fs::create_dir_all(output_dir)?;
+    fs::create_dir_all(output_dir.join("src"))?;
+    fs::create_dir_all(output_dir.join(".cargo"))?;
+    
+    // Create Cargo.toml
+    let cargo_toml = format!(r#"[package]
+name = "{}"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+openzax-skills-sdk = {{ git = "https://github.com/zAxCoder/OpenZax.git" }}
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+"#, name);
+    
+    fs::write(output_dir.join("Cargo.toml"), cargo_toml)?;
+    
+    // Create .cargo/config.toml
+    let cargo_config = r#"[build]
+target = "wasm32-wasip1"
+
+[target.wasm32-wasip1]
+rustflags = ["-C", "link-arg=--export-table"]
+"#;
+    
+    fs::write(output_dir.join(".cargo/config.toml"), cargo_config)?;
+    
+    // Create src/lib.rs
+    let lib_rs = r#"use openzax_skills_sdk::{skill_main, SkillContext, SkillResult};
+
+#[skill_main]
+fn run() -> SkillResult<()> {
+    let ctx = SkillContext::new();
+    
+    ctx.log_info("Hello from OpenZax skill!");
+    ctx.log_info("This is a minimal skill template.");
+    
+    // Add your skill logic here
+    
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_run() {
+        assert!(run().is_ok());
+    }
+}
+"#;
+    
+    fs::write(output_dir.join("src/lib.rs"), lib_rs)?;
+    
+    // Create README.md
+    let readme = format!(r#"# {}
+
+A skill for OpenZax.
+
+## Building
+
+```bash
+openzax skill build
+```
+
+## Testing
+
+```bash
+openzax skill test
+```
+
+## Running
+
+```bash
+openzax skill build --release
+# Load the skill in OpenZax
+```
+"#, name);
+    
+    fs::write(output_dir.join("README.md"), readme)?;
+    
+    // Create build.sh
+    let build_sh = r#"#!/bin/bash
+cargo build --target wasm32-wasip1 --release
+"#;
+    
+    fs::write(output_dir.join("build.sh"), build_sh)?;
+    
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(output_dir.join("build.sh"))?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(output_dir.join("build.sh"), perms)?;
+    }
+    
     Ok(())
 }
 
