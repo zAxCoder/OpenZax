@@ -1,7 +1,9 @@
+#![allow(dead_code)]
 use colored::*;
 use console::Term;
 use std::io::Write;
 
+#[allow(dead_code)]
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn term_width() -> usize {
