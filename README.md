@@ -31,18 +31,54 @@
 
 ## 🚀 Quick Start
 
+### One-Line Install
+
+**Linux / macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/zAxCoder/OpenZax/master/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/zAxCoder/OpenZax/master/install.ps1 | iex
+```
+
+**Using Cargo:**
+```bash
+cargo install --git https://github.com/zAxCoder/OpenZax openzax-cli
+```
+
+### First Run
+
+```bash
+# Start interactive TUI
+openzax
+
+# Or with specific model
+openzax shell --model gpt-4 --api-key sk-...
+
+# Check installation
+openzax doctor
+```
+
+See [INSTALL.md](INSTALL.md) for detailed installation instructions.
+
+---
+
+## 📦 Installation (Development)
+
 ### Prerequisites
 
 - Rust 1.82+ (2024 edition)
 - Node.js 18+ (for Tauri)
 - OpenAI API key (or compatible LLM API)
 
-### Installation
+### From Source
 
 ```bash
 # Clone repository
-git clone https://github.com/openzax/openzax.git
-cd openzax
+git clone https://github.com/zAxCoder/OpenZax.git
+cd OpenZax
 
 # Install Trunk (for building Leptos UI)
 cargo install trunk

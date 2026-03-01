@@ -5,6 +5,11 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
+description = "OpenZax - Secure AI Development Assistant CLI"
+homepage = "https://github.com/zAxCoder/OpenZax"
+repository = "https://github.com/zAxCoder/OpenZax"
+keywords = ["ai", "assistant", "cli", "wasm", "mcp"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "openzax"
