@@ -1,322 +1,203 @@
 # OpenZax CLI
 
-Command-line interface for OpenZax - Secure AI Development Assistant.
+The command-line interface for OpenZax - a secure AI development assistant platform.
 
 ## Installation
+
+### From Source
 
 ```bash
 cargo install --path crates/cli
 ```
 
-Or build from source:
+### From Git
 
 ```bash
-cargo build --release --features llm-engine
+cargo install --git https://github.com/zAxCoder/OpenZax openzax-cli
 ```
 
-The binary will be available at `target/release/openzax`.
+## Quick Start
+
+```bash
+# Start interactive shell
+openzax shell
+
+# Or just run
+openzax
+```
 
 ## Commands
 
-### Shell
-
-Start an interactive terminal shell with AI assistant:
+### Skill Management
 
 ```bash
-openzax shell --api-key YOUR_API_KEY
-```
+# Initialize a new skill
+openzax skill init my-skill --language rust
 
-Options:
-- `--api-key, -a` - API key for LLM provider (or set `OPENZAX_API_KEY` env var)
-- `--model, -m` - Model to use (default: `gpt-4`)
-- `--db-path, -d` - Database path (default: `.openzax/openzax.db`)
+# Build a skill
+openzax skill build --release
 
-Example:
-```bash
-export OPENZAX_API_KEY="sk-..."
-openzax shell --model gpt-4-turbo
+# Test a skill
+openzax skill test
+
+# Package a skill
+openzax skill pack
+
+# Sign a skill
+openzax skill sign my-skill.ozskill --key mykey.private.key
+
+# Publish to marketplace
+openzax skill publish my-skill.ozskill --key mykey.private.key
+
+# Inspect a skill package
+openzax skill inspect my-skill.ozskill
+
+# Validate a skill package
+openzax skill validate my-skill.ozskill
 ```
 
 ### Model Management
 
-Manage local GGUF models for offline inference.
-
-#### List Models
-
-List all available models in the models directory:
-
 ```bash
+# List local models
 openzax model list
+
+# Download a model
+openzax model download llama-3.3-70b
+
+# Show model info
+openzax model info llama-3.3-70b
+
+# Remove a model
+openzax model remove llama-3.3-70b
 ```
 
-Options:
-- `--models-dir, -m` - Models directory (default: `~/.openzax/models`)
-
-Example output:
-```
-Discovering models in: /home/user/.openzax/models
-
-Found 2 model(s):
-
-  • llama 3.3 70b q4 k m (llama-3.3-70b-q4_k_m)
-    Size: 38.76 GB
-    Quantization: q4_k_m
-    Context: 4096 tokens
-    Capabilities: [Chat, Code]
-    Path: /home/user/.openzax/models/llama-3.3-70b-q4_k_m.gguf
-```
-
-#### Download Models
-
-Get instructions for downloading models:
+### MCP Server Tools
 
 ```bash
-openzax model download llama-3.3-70b-q4_k_m
+# Simulate a mock MCP server
+openzax mcp simulate my-server
+
+# Inspect an MCP server
+openzax mcp inspect "npx @mcp/server-fs /tmp"
+
+# Record MCP session
+openzax mcp record "npx @mcp/server-fs /tmp" --output session.jsonl
 ```
 
-This command provides instructions and links to download GGUF models from:
-- Hugging Face: https://huggingface.co/models?library=gguf
-- TheBloke's models: https://huggingface.co/TheBloke
-
-Popular models:
-- `llama-3.3-70b-q4_k_m.gguf` - Recommended for general use
-- `mistral-7b-instruct-v0.2-q4_k_m.gguf` - Smaller, faster
-- `codellama-13b-instruct-q4_k_m.gguf` - Optimized for code
-
-#### Model Info
-
-Show detailed information about a specific model:
+### Authentication & Marketplace
 
 ```bash
-openzax model info llama-3.3-70b-q4_k_m
+# Generate Ed25519 keypair
+openzax keygen --output mykey
+
+# Login to marketplace
+openzax login --token YOUR_TOKEN
+
+# Check login status
+openzax whoami
+
+# Search marketplace
+openzax search "file system" --category tools
+
+# Install a skill
+openzax install file-reader --version 1.0.0
 ```
 
-Options:
-- `--models-dir, -m` - Models directory (default: `~/.openzax/models`)
-
-Example output:
-```
-Model Information:
-  ID: llama-3.3-70b-q4_k_m
-  Name: llama 3.3 70b q4 k m
-  Provider: Local
-  Context Window: 4096 tokens
-  Size: 38.76 GB (39680 MB)
-  Quantization: q4_k_m
-  Capabilities: [Chat, Code]
-  Local: true
-  Path: /home/user/.openzax/models/llama-3.3-70b-q4_k_m.gguf
-
-GPU Information:
-  CUDA: Not available
-  Metal: Available
-  Vulkan: Not available
-```
-
-#### Remove Model
-
-Remove a model from the local directory:
+### System Tools
 
 ```bash
-openzax model remove llama-3.3-70b-q4_k_m
-```
+# Run health checks
+openzax doctor
 
-Options:
-- `--models-dir, -m` - Models directory (default: `~/.openzax/models`)
-- `--yes, -y` - Skip confirmation prompt
+# Check for updates
+openzax upgrade
 
-Example:
-```bash
-# With confirmation
-openzax model remove llama-3.3-70b-q4_k_m
-
-# Skip confirmation
-openzax model remove llama-3.3-70b-q4_k_m -y
-```
-
-### Skill Development
-
-Initialize a new skill project (coming in Phase 2):
-
-```bash
-openzax init my-skill --language rust
-```
-
-Options:
-- `--language, -l` - Programming language (rust, typescript, python)
-
-### Version
-
-Display version information:
-
-```bash
+# Show version
 openzax version
 ```
 
-Or simply:
-```bash
-openzax --version
-```
+## Configuration
 
-## Global Options
-
-- `--verbose, -v` - Enable verbose logging
-- `--help, -h` - Show help information
-
-## Environment Variables
-
-- `OPENZAX_API_KEY` - Default API key for LLM providers
-- `RUST_LOG` - Control log level (e.g., `RUST_LOG=debug`)
-
-## Features
-
-The CLI supports optional features that can be enabled at compile time:
-
-### llm-engine
-
-Enables local model management commands:
-
-```bash
-cargo build --features llm-engine
-```
-
-### llama-cpp
-
-Enables full llama.cpp integration for local inference:
-
-```bash
-cargo build --features llama-cpp
-```
-
-Note: This requires llama.cpp to be installed on your system.
-
-## Examples
-
-### Basic Usage
-
-```bash
-# Start interactive shell
-export OPENZAX_API_KEY="sk-..."
-openzax shell
-
-# List available models
-openzax model list
-
-# Get model information
-openzax model info llama-3.3-70b-q4_k_m
-
-# Remove a model
-openzax model remove old-model -y
-```
-
-### Advanced Usage
-
-```bash
-# Use custom models directory
-openzax model list --models-dir /path/to/models
-
-# Use specific model in shell
-openzax shell --model gpt-4-turbo --db-path ./my-project/.openzax/db
-
-# Verbose logging
-openzax -v shell
-```
-
-## Directory Structure
-
-OpenZax uses the following directory structure:
+OpenZax stores configuration in `~/.openzax/`:
 
 ```
 ~/.openzax/
-├── models/           # Local GGUF models
-├── skills/           # Installed skills (Phase 2)
-├── config.toml       # User configuration (Phase 2)
-└── openzax.db        # Default database (if not specified)
+├── auth.json          # Authentication token
+├── skills/            # Installed skills
+├── models/            # Local LLM models
+└── openzax.db         # SQLite database
 ```
 
-## Troubleshooting
+## Environment Variables
 
-### "API key is required" Error
+- `OPENZAX_API_KEY` - API key for cloud LLM providers
+- `RUST_LOG` - Logging level (e.g., `debug`, `info`)
 
-Make sure to set your API key:
+## Examples
+
+### Create and Publish a Skill
 
 ```bash
-export OPENZAX_API_KEY="your-api-key"
+# 1. Create new skill
+openzax skill init hello-world --language rust
+
+# 2. Build it
+cd hello-world
+openzax skill build --release
+
+# 3. Package it
+openzax skill pack
+
+# 4. Generate signing key
+openzax keygen --output mykey
+
+# 5. Sign the package
+openzax skill sign hello-world-0.1.0.ozskill --key mykey.private.key
+
+# 6. Publish to marketplace
+openzax skill publish hello-world-0.1.0.ozskill --key mykey.private.key
 ```
 
-Or pass it directly:
+### Interactive Shell
 
 ```bash
-openzax shell --api-key your-api-key
+# Start with default settings
+openzax shell
+
+# Use specific model
+openzax shell --model gpt-4
+
+# Use custom API key
+openzax shell --api-key sk-...
+
+# Custom database path
+openzax shell --db-path ./my-data.db
 ```
 
-### "Model management requires the 'llm-engine' feature" Error
+## Features
 
-Rebuild with the llm-engine feature:
-
-```bash
-cargo build --release --features llm-engine
-```
-
-### No Models Found
-
-Download GGUF models and place them in `~/.openzax/models/`:
-
-```bash
-mkdir -p ~/.openzax/models
-# Download models from Hugging Face
-# Place .gguf files in the directory
-openzax model list
-```
+- 🦀 **Rust-native** - Fast and memory-safe
+- 🔐 **Secure** - Ed25519 signing for skills
+- 🎨 **Beautiful TUI** - Rich terminal interface with ratatui
+- 🔌 **MCP Support** - Model Context Protocol integration
+- 📦 **Skill Marketplace** - Discover and share skills
+- 🤖 **Local & Cloud LLMs** - Support for both local and cloud models
+- 🛡️ **WASM Sandbox** - Secure skill execution
 
 ## Development
 
-### Building
-
 ```bash
-# Standard build
-cargo build
+# Run in development mode
+cargo run --manifest-path crates/cli/Cargo.toml
 
-# Release build with all features
-cargo build --release --all-features
+# With verbose logging
+cargo run --manifest-path crates/cli/Cargo.toml -- --verbose
 
-# Development build with verbose output
-cargo build --features llm-engine
-```
-
-### Testing
-
-```bash
-cargo test
-```
-
-### Running
-
-```bash
-# Development
-cargo run -- shell --api-key test
-
-# Release
-cargo run --release --features llm-engine -- model list
+# Run specific command
+cargo run --manifest-path crates/cli/Cargo.toml -- skill init test-skill
 ```
 
 ## License
 
-Dual-licensed under MIT OR Apache-2.0.
-
-## Contributing
-
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for contribution guidelines.
-
-## Documentation
-
-- [Project README](../../README.md)
-- [Architecture Blueprint](../../docs/master-architecture-blueprint.md)
-- [LLM Engine Guide](../../docs/llm-engine-guide.md)
-- [MCP Client Guide](../../docs/mcp-client-guide.md)
-- [WASM Runtime Guide](../../docs/wasm-runtime-guide.md)
-
-## Support
-
-- GitHub Issues: https://github.com/openzax/openzax/issues
-- Documentation: https://docs.openzax.dev (coming soon)
+MIT License - see LICENSE file for details

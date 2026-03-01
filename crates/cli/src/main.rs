@@ -1777,6 +1777,112 @@ rustflags = ["-C", "link-arg=--export-table"]
 "#;
     fs::write(output_dir.join(".cargo/config.toml"), cargo_config)?;
 
+    let lib_rs = format!(
+        r#"use openzax_skills_sdk::{{skill, SkillContext, SkillResult}};
+
+#[skill]
+pub fn execute(ctx: &SkillContext) -> SkillResult {{
+    // Your skill logic here
+    let input = ctx.get_input()?;
+    
+    Ok(format!("Hello from {}! Input: {{}}", input))
+}}
+
+#[cfg(test)]
+mod tests {{
+    use super::*;
+    use openzax_skills_sdk::SkillContext;
+
+    #[test]
+    fn test_execute() {{
+        let ctx = SkillContext::new("test input");
+        let result = execute(&ctx);
+        assert!(result.is_ok());
+    }}
+}}
+"#,
+        name
+    );
+    fs::write(output_dir.join("src/lib.rs"), lib_rs)?;
+
+    let manifest = serde_json::json!({{
+        "name": name,
+        "version": "0.1.0",
+        "description": format!("A skill created with OpenZax CLI"),
+        "author": "Your Name",
+        "license": "MIT",
+        "permissions": []
+    }});
+    fs::write(
+        output_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest)?,
+    )?;
+
+    let readme = format!(
+        r#"# {}
+
+A WebAssembly skill for OpenZax.
+
+## Building
+
+```bash
+cargo build --release --target wasm32-wasip1
+```
+
+Or use the CLI:
+
+```bash
+openzax skill build --release
+```
+
+## Testing
+
+```bash
+cargo test
+```
+
+## Packaging
+
+```bash
+openzax skill pack
+```
+
+## Publishing
+
+```bash
+openzax skill publish {}-0.1.0.ozskill --key your-key.private.key
+```
+"#,
+        name, name
+    );
+    fs::write(output_dir.join("README.md"), readme)?;
+
+    Ok(())
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+fn openzax_config_dir() -> anyhow::Result<PathBuf> {{
+    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
+    let config_dir = home.join(".openzax");
+    if !config_dir.exists() {{
+        std::fs::create_dir_all(&config_dir)?;
+    }}
+    Ok(config_dir)
+}}
+
+fn urlencoding(s: &str) -> String {{
+    s.chars()
+        .map(|c| {{
+            if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '~' {{
+                c.to_string()
+            }} else {{
+                format!("%{:02X}", c as u8)
+            }}
+        }})
+        .collect()
+}}::write(output_dir.join(".cargo/config.toml"), cargo_config)?;
+
     let lib_rs = r#"use openzax_skills_sdk::{skill_main, SkillContext, SkillResult};
 
 #[skill_main]
