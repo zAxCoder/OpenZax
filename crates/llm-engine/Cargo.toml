@@ -1,0 +1,33 @@
+[package]
+name = "openzax-llm-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+openzax-core = { path = "../core" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+futures = "0.3"
+
+[features]
+default = []
+# llama-cpp feature disabled until llama-cpp-rs is available
+# llama-cpp = ["dep:llama-cpp-rs"]
+# cuda = ["llama-cpp-rs?/cuda"]
+# metal = ["llama-cpp-rs?/metal"]
+# vulkan = ["llama-cpp-rs?/vulkan"]
+
+# llama-cpp-rs integration (optional)
+# Uncomment when llama-cpp-rs is available
+# [dependencies.llama-cpp-rs]
+# version = "0.4"
+# optional = true
+# default-features = false
