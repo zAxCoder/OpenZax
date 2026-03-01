@@ -1805,14 +1805,14 @@ mod tests {{
     );
     fs::write(output_dir.join("src/lib.rs"), lib_rs)?;
 
-    let manifest = serde_json::json!({{
+    let manifest = serde_json::json!({
         "name": name,
         "version": "0.1.0",
         "description": format!("A skill created with OpenZax CLI"),
         "author": "Your Name",
         "license": "MIT",
         "permissions": []
-    }});
+    });
     fs::write(
         output_dir.join("manifest.json"),
         serde_json::to_string_pretty(&manifest)?,
@@ -1862,112 +1862,22 @@ openzax skill publish {}-0.1.0.ozskill --key your-key.private.key
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-fn openzax_config_dir() -> anyhow::Result<PathBuf> {{
+fn openzax_config_dir() -> anyhow::Result<PathBuf> {
     let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
     let config_dir = home.join(".openzax");
-    if !config_dir.exists() {{
+    if !config_dir.exists() {
         std::fs::create_dir_all(&config_dir)?;
-    }}
-    Ok(config_dir)
-}}
-
-fn urlencoding(s: &str) -> String {{
-    s.chars()
-        .map(|c| {{
-            if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '~' {{
-                c.to_string()
-            }} else {{
-                format!("%{:02X}", c as u8)
-            }}
-        }})
-        .collect()
-}}::write(output_dir.join(".cargo/config.toml"), cargo_config)?;
-
-    let lib_rs = r#"use openzax_skills_sdk::{skill_main, SkillContext, SkillResult};
-
-#[skill_main]
-fn run() -> SkillResult<()> {
-    let ctx = SkillContext::new();
-    ctx.log_info("Hello from OpenZax skill!");
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test_run() {
-        assert!(run().is_ok());
     }
-}
-"#;
-    fs::write(output_dir.join("src/lib.rs"), lib_rs)?;
-
-    let manifest_json = format!(
-        r#"{{
-  "name": "{}",
-  "version": "0.1.0",
-  "description": "An OpenZax skill",
-  "author": "",
-  "license": "MIT",
-  "permissions": []
-}}
-"#,
-        name
-    );
-    fs::write(output_dir.join("manifest.json"), manifest_json)?;
-
-    let readme = format!(
-        r#"# {}
-
-An OpenZax skill.
-
-## Building
-
-```bash
-openzax skill build
-```
-
-## Packaging
-
-```bash
-openzax skill pack
-```
-"#,
-        name
-    );
-    fs::write(output_dir.join("README.md"), readme)?;
-
-    Ok(())
-}
-
-// ── utilities ─────────────────────────────────────────────────────────────────
-
-fn openzax_config_dir() -> anyhow::Result<PathBuf> {
-    let home =
-        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
-    let dir = home.join(".openzax");
-    std::fs::create_dir_all(&dir)?;
-    Ok(dir)
+    Ok(config_dir)
 }
 
 fn urlencoding(s: &str) -> String {
     s.chars()
-        .flat_map(|c| match c {
-            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => {
-                vec![c]
-            }
-            ' ' => vec!['+'],
-            c => {
-                let mut buf = [0u8; 4];
-                let bytes = c.encode_utf8(&mut buf);
-                bytes
-                    .as_bytes()
-                    .iter()
-                    .flat_map(|b| {
-                        format!("%{:02X}", b).chars().collect::<Vec<_>>()
-                    })
-                    .collect()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '~' {
+                c.to_string()
+            } else {
+                format!("%{:02X}", c as u8)
             }
         })
         .collect()
