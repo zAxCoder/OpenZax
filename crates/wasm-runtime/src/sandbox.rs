@@ -101,8 +101,6 @@ impl Sandbox {
         
         // Create linker with host functions
         let mut linker = Linker::new(&self.engine);
-        wasmtime_wasi::add_to_linker_sync(&mut linker)
-            .map_err(|e| WasmError::Instantiation(format!("Failed to add WASI to linker: {}", e)))?;
         
         // Add custom host functions
         self.add_host_functions(&mut linker)?;
@@ -124,7 +122,7 @@ impl Sandbox {
         let mut builder = WasiCtxBuilder::new();
         
         // Inherit stdio (can be customized later)
-        builder = builder.inherit_stdio();
+        builder.inherit_stdio();
         
         // Add allowed filesystem paths
         for path in &self.config.fs_read_paths {
@@ -212,7 +210,7 @@ impl SandboxInstance {
             .map_err(|e| WasmError::Execution(format!("Failed to get fuel: {}", e)))
     }
 
-    pub fn get_memory_usage(&self) -> WasmResult<usize> {
+    pub fn get_memory_usage(&mut self) -> WasmResult<usize> {
         let memory = self.instance
             .get_memory(&mut self.store, "memory")
             .ok_or_else(|| WasmError::Execution("Memory export not found".to_string()))?;
@@ -220,7 +218,7 @@ impl SandboxInstance {
         Ok(memory.data_size(&self.store))
     }
 
-    pub fn check_limits(&self) -> WasmResult<()> {
+    pub fn check_limits(&mut self) -> WasmResult<()> {
         let fuel = self.get_remaining_fuel()?;
         if fuel == 0 {
             return Err(WasmError::FuelExhausted("CPU budget exhausted".to_string()));

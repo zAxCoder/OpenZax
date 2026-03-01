@@ -121,7 +121,6 @@ impl McpClient {
         
         Ok(tool_response)
     }
-}
 
     pub async fn list_resources(&self) -> McpResult<Vec<Resource>> {
         debug!("Listing resources");
