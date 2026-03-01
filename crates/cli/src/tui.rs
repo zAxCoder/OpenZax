@@ -1,5 +1,5 @@
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -91,8 +91,9 @@ impl App {
     }
 
     fn insert_char(&mut self, c: char) {
+        let char_len = c.len_utf8();
         self.input.insert(self.cursor_pos, c);
-        self.cursor_pos += c.len_utf8();
+        self.cursor_pos += char_len;
     }
 
     fn delete_back(&mut self) {
@@ -542,6 +543,11 @@ async fn run_app(
         // Poll with short timeout so streaming updates render smoothly
         if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
+                // Only handle key press events, not release
+                if key.kind != KeyEventKind::Press {
+                    continue;
+                }
+                
                 // Global: Ctrl+C to quit
                 if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
                     break;
