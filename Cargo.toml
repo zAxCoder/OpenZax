@@ -1,0 +1,90 @@
+[workspace]
+members = [
+    "crates/core",
+    "crates/shell",
+    "crates/sdk",
+    "crates/cli",
+    "crates/wasm-runtime",
+    "crates/mcp-client",
+    "crates/llm-engine",
+    # UI components require additional setup (Node.js, Trunk)
+    # Uncomment when ready to build desktop app:
+    # "tauri-app",
+    # "ui",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.5.0"
+edition = "2021"
+rust-version = "1.82"
+authors = ["OpenZax Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/openzax/openzax"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.43", features = ["full"] }
+tokio-util = "0.7"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# HTTP
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], default-features = false }
+axum = "0.8"
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled", "serde_json"] }
+
+# Crypto
+ed25519-dalek = "2.1"
+age = "0.10"
+sha2 = "0.10"
+
+# CLI
+clap = { version = "4.5", features = ["derive", "cargo"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.11", features = ["v4", "serde"] }
+
+# WASM Runtime
+wasmtime = "27.0"
+wasmtime-wasi = "27.0"
+
+# Tauri
+tauri = { version = "2.0", features = [] }
+tauri-build = "2.0"
+tauri-plugin-shell = "2.0"
+tauri-plugin-dialog = "2.0"
+tauri-plugin-fs = "2.0"
+
+# Leptos
+leptos = { version = "0.7", features = [] }
+leptos_meta = "0.7"
+leptos_router = "0.7"
+
+# WASM
+wasm-bindgen = "0.2"
+web-sys = "0.3"
+serde-wasm-bindgen = "0.6"
+
+# Directories
+dirs = "5.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
