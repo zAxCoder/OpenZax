@@ -1,0 +1,32 @@
+[package]
+name = "openzax-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "openzax"
+path = "src/main.rs"
+
+[dependencies]
+openzax-core = { path = "../core" }
+openzax-shell = { path = "../shell" }
+openzax-llm-engine = { path = "../llm-engine", optional = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+dirs = "5.0"
+colored = "2.1"
+dialoguer = "0.11"
+indicatif = "0.17"
+console = "0.15"
+
+[features]
+default = []
+llm-engine = ["openzax-llm-engine"]
+# llama-cpp feature disabled until llama-cpp-rs is available
+# llama-cpp = ["llm-engine", "openzax-llm-engine/llama-cpp"]
