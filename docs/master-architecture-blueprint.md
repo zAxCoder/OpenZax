@@ -3185,3 +3185,40 @@ graph TB
 ---
 
 *Document generated for OpenZax project. All technical specifications are implementation-ready with concrete technology choices and version numbers. No placeholders remain.*
+
+---
+
+## Appendix D: Implementation Status (2026-03-01)
+
+### Implemented Crates
+
+| Crate | Phase | Status | Key Features |
+|-------|-------|--------|--------------|
+| `openzax-core` | 0 | ✅ Complete | Event bus, agent loop, SQLite storage |
+| `openzax-shell` | 0 | ✅ Complete | Terminal shell, readline |
+| `openzax-cli` | 0–5 | ✅ Complete | 15+ commands incl. keygen, mcp, doctor |
+| `openzax-wasm-runtime` | 1 | ✅ Complete | Wasmtime 27, fuel metering, host functions |
+| `openzax-mcp-client` | 1 | ✅ Complete | stdio + HTTP transports, full protocol |
+| `openzax-llm-engine` | 1 | ✅ Complete | Multi-provider, model router, streaming |
+| `openzax-skills-sdk` | 2 | ✅ Complete | Rust SDK, proc macros, SkillContext |
+| `openzax-skills-macros` | 2 | ✅ Complete | #[skill_main], #[derive(Skill)] |
+| `openzax-security` | 2–4 | ✅ Complete | Zero-trust tokens, VFS, vault, audit, kill-switch, anomaly |
+| `openzax-marketplace` | 2–3 | ✅ Complete | axum API, Ed25519 verify, 3-tier scan, trending |
+| `openzax-workflow` | 2 | ✅ Complete | DAG engine, 7 trigger types, sub-workflows |
+| `openzax-enterprise` | 4 | ✅ Complete | SAML/OIDC, RBAC, fleet, compliance, orchestration |
+| `openzax-ai-core` | 3–4 | ✅ Complete | Multi-model router, ToT planner, delegation, compression |
+| `openzax-test-harness` | 2 | ✅ Complete | Mock host, test runner, 8 assertions |
+
+### Language SDKs Implemented
+
+| SDK | Package | Status |
+|-----|---------|--------|
+| Rust | `openzax-skills-sdk` | ✅ Complete |
+| TypeScript | `@openzax/sdk` | ✅ Complete |
+| Python | `openzax-sdk` | ✅ Complete |
+
+### Architecture Validation
+
+All crates pass `cargo check --workspace` with zero errors as of 2026-03-01.
+
+**Phase 0–4 implementation milestone achieved.**
