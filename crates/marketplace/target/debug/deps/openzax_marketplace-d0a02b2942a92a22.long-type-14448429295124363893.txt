@@ -1,0 +1,2 @@
+fn(axum::extract::State<Arc<AppState>>, axum::extract::Path<Uuid>) -> impl std::future::Future<Output = std::result::Result<impl IntoResponse, MarketplaceError>> {list_reviews}
+fn(axum::extract::State<Arc<AppState>>, axum::extract::Path<Uuid>) -> impl std::future::Future<Output = std::result::Result<impl IntoResponse, MarketplaceError>> {list_reviews}: Handler<_, _>

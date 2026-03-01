@@ -7,6 +7,14 @@ members = [
     "crates/wasm-runtime",
     "crates/mcp-client",
     "crates/llm-engine",
+    "crates/skills-sdk",
+    "crates/skills-macros",
+    "crates/security",
+    "crates/marketplace",
+    "crates/workflow",
+    "crates/enterprise",
+    "crates/ai-core",
+    "crates/test-harness",
     # UI components require additional setup (Node.js, Trunk)
     # Uncomment when ready to build desktop app:
     # "tauri-app",
@@ -88,3 +96,4 @@ opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
+

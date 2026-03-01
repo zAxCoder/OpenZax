@@ -1,0 +1,2 @@
+fn(axum::extract::State<Arc<AppState>>, Json<SubmitSkillRequest>) -> impl std::future::Future<Output = std::result::Result<impl IntoResponse, MarketplaceError>> {submit_skill}
+fn(axum::extract::State<Arc<AppState>>, Json<SubmitSkillRequest>) -> impl std::future::Future<Output = std::result::Result<impl IntoResponse, MarketplaceError>> {submit_skill}: Handler<_, _>
