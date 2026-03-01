@@ -1,0 +1,22 @@
+[[hooks]]
+stage = "pre_build"
+command = "echo"
+command_arguments = ["Building OpenZax UI..."]
+
+[[hooks]]
+stage = "post_build"
+command = "echo"
+command_arguments = ["Build complete!"]
+
+[build]
+target = "index.html"
+dist = "dist"
+public_url = "/"
+
+[watch]
+ignore = ["dist", "target"]
+
+[serve]
+address = "127.0.0.1"
+port = 5173
+open = false

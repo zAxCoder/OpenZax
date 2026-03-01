@@ -42,6 +42,7 @@ pub enum EventLevel {
     Error,
 }
 
+#[derive(Clone)]
 pub struct EventBus {
     sender: tokio::sync::broadcast::Sender<Event>,
 }

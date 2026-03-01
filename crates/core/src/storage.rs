@@ -1,7 +1,6 @@
-use rusqlite::{Connection, params};
-use chrono::{DateTime, Utc};
+use rusqlite::{Connection, params, OptionalExtension};
+use chrono::Utc;
 use uuid::Uuid;
-use serde_json::Value;
 use std::path::Path;
 
 pub struct Storage {

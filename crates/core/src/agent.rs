@@ -3,6 +3,7 @@ use crate::event::{Event, EventBus};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::Utc;
+use futures_util::StreamExt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
@@ -142,13 +143,14 @@ impl Agent {
         use tokio::io::AsyncBufReadExt;
         let mut lines = tokio::io::BufReader::new(
             tokio_util::io::StreamReader::new(
-                response.bytes_stream().map(|result| {
+                response.bytes_stream().map(|result: std::result::Result<bytes::Bytes, reqwest::Error>| {
                     result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
                 })
             )
         ).lines();
 
         while let Some(line) = lines.next_line().await? {
+            let line: String = line;
             if line.starts_with("data: ") {
                 let data = &line[6..];
                 if data == "[DONE]" {
