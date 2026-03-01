@@ -1,0 +1,20 @@
+// OpenZax Host Configuration Interface
+// Provides key-value configuration storage scoped per skill
+
+package openzax:host@1.0.0;
+
+interface config {
+    // Get a configuration value by key
+    // Returns none if key doesn't exist
+    get: func(key: string) -> option<string>;
+
+    // Set a configuration value
+    set: func(key: string, value: string);
+
+    // Delete a configuration value
+    // Returns true if key existed
+    delete: func(key: string) -> bool;
+
+    // List all configuration keys
+    list-keys: func() -> list<string>;
+}

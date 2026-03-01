@@ -1,0 +1,43 @@
+// OpenZax Host Filesystem Interface
+// Provides virtual filesystem access with permission scoping
+
+package openzax:host@1.0.0;
+
+interface fs {
+    // File metadata
+    record file-info {
+        path: string,
+        size: u64,
+        is-dir: bool,
+        modified: u64, // Unix timestamp
+    }
+
+    // Directory entry
+    record dir-entry {
+        name: string,
+        is-dir: bool,
+    }
+
+    // Read file contents
+    // Returns error if file doesn't exist or permission denied
+    read: func(path: string) -> result<list<u8>, string>;
+
+    // Write file contents
+    // Creates file if it doesn't exist
+    write: func(path: string, content: list<u8>) -> result<_, string>;
+
+    // Delete a file
+    delete: func(path: string) -> result<_, string>;
+
+    // Check if file exists
+    exists: func(path: string) -> bool;
+
+    // Get file metadata
+    stat: func(path: string) -> result<file-info, string>;
+
+    // List directory contents
+    list-dir: func(path: string) -> result<list<dir-entry>, string>;
+
+    // Create directory
+    create-dir: func(path: string) -> result<_, string>;
+}

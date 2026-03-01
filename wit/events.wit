@@ -1,0 +1,27 @@
+// OpenZax Host Events Interface
+// Provides pub/sub event system for inter-skill communication
+
+package openzax:host@1.0.0;
+
+interface events {
+    // Event payload
+    record event {
+        name: string,
+        payload: list<u8>,
+        timestamp: u64,
+    }
+
+    // Emit an event
+    emit: func(event-name: string, payload: list<u8>);
+
+    // Subscribe to events matching a pattern
+    // Returns subscription ID
+    subscribe: func(pattern: string) -> u64;
+
+    // Unsubscribe from events
+    unsubscribe: func(subscription-id: u64);
+
+    // Poll for events (non-blocking)
+    // Returns list of events since last poll
+    poll: func(subscription-id: u64) -> list<event>;
+}

@@ -1,0 +1,17 @@
+// OpenZax Skill World Definition
+// Defines the complete interface contract for WASM skills
+
+package openzax:skill@1.0.0;
+
+world skill {
+    // Import host interfaces (available to skills)
+    import openzax:host/logging;
+    import openzax:host/config;
+    import openzax:host/fs;
+    import openzax:host/kv-store;
+    import openzax:host/http-client;
+    import openzax:host/events;
+
+    // Skills must export at least one of these interfaces
+    // (defined by skill developers in their WIT files)
+}

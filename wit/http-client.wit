@@ -1,0 +1,36 @@
+// OpenZax Host HTTP Client Interface
+// Provides HTTP request capabilities with URL allowlist enforcement
+
+package openzax:host@1.0.0;
+
+interface http-client {
+    // HTTP methods
+    enum method {
+        get,
+        post,
+        put,
+        delete,
+        patch,
+        head,
+        options,
+    }
+
+    // HTTP request
+    record request {
+        method: method,
+        url: string,
+        headers: list<tuple<string, string>>,
+        body: option<list<u8>>,
+    }
+
+    // HTTP response
+    record response {
+        status: u16,
+        headers: list<tuple<string, string>>,
+        body: list<u8>,
+    }
+
+    // Send HTTP request
+    // Returns error if URL not in allowlist or request fails
+    fetch: func(req: request) -> result<response, string>;
+}
