@@ -1,0 +1,17 @@
+[package]
+name = "mcp-filesystem-example"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "mcp-filesystem"
+path = "main.rs"
+
+[dependencies]
+openzax-mcp-client = { path = "../../crates/mcp-client" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde_json = { workspace = true }
