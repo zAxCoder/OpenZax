@@ -1,349 +1,155 @@
-# OpenZax
+<p align="center">
+  <img src="https://img.shields.io/badge/language-Rust-black?style=flat-square&logo=rust" />
+  <img src="https://img.shields.io/badge/license-MIT-white?style=flat-square" />
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-gray?style=flat-square" />
+  <img src="https://img.shields.io/github/stars/zAxCoder/OpenZax?style=flat-square&color=black" />
+  <img src="https://img.shields.io/github/v/release/zAxCoder/OpenZax?style=flat-square&color=white" />
+</p>
 
-> Secure AI Development Assistant built in Rust with WASM sandboxing and zero-trust architecture.
+<h1 align="center">OpenZax</h1>
 
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
-[![Rust](https://img.shields.io/badge/rust-1.82%2B-orange.svg)](https://www.rust-lang.org/)
-[![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](CHANGELOG.md)
-[![Status](https://img.shields.io/badge/status-Phase%201%20Complete-brightgreen.svg)](STATUS.md)
+<p align="center">
+  <strong>Secure AI development assistant built in Rust.</strong><br/>
+  A terminal-native coding agent with zero-trust security, WASM skill plugins, and multi-model support.
+</p>
 
----
-
-## 🎯 Project Status
-
-**Current Phase**: Phase 1 - ✅ 100% Complete  
-**Overall Progress**: 40% Complete  
-**Next Milestone**: Phase 2 - Skills SDK & Marketplace
-
-### What's Working Now
-
-- ✅ **Desktop Application** - Tauri v2 with Leptos UI
-- ✅ **Command Palette** - Fast keyboard-driven commands (Ctrl+Shift+P)
-- ✅ **Multi-Panel Workspace** - Professional IDE-like layout
-- ✅ **Chat Interface** - Real-time streaming with markdown
-- ✅ **Terminal Shell** - Interactive CLI with streaming responses
-- ✅ **WASM Sandbox** - Production-ready skill execution
-- ✅ **MCP Client** - Full protocol support (stdio, HTTP)
-- ✅ **LLM Engine** - Intelligent model routing
-- ✅ **Model Management** - CLI commands for local models
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#models">Models</a> ·
+  <a href="#skills">Skills</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#contributing">Contributing</a>
+</p>
 
 ---
 
-## 🚀 Quick Start
+## Install
 
-### One-Line Install
+**One command** — then type `openzax` anywhere:
 
-**Linux / macOS:**
 ```bash
+# Linux / macOS
 curl -fsSL https://raw.githubusercontent.com/zAxCoder/OpenZax/master/install.sh | bash
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/zAxCoder/OpenZax/master/install.ps1 | iex
 ```
 
-**Windows (PowerShell):**
-```powershell
-iwr -useb https://raw.githubusercontent.com/zAxCoder/OpenZax/master/install.ps1 | iex
-```
-
-**Using Cargo:**
-```bash
-cargo install --git https://github.com/zAxCoder/OpenZax openzax-cli
-```
-
-### First Run
+Or build from source:
 
 ```bash
-# Start interactive TUI
-openzax
-
-# Or with specific model
-openzax shell --model gpt-4 --api-key sk-...
-
-# Check installation
-openzax doctor
-```
-
-See [INSTALL.md](INSTALL.md) for detailed installation instructions.
-
----
-
-## 📦 Installation (Development)
-
-### Prerequisites
-
-- Rust 1.82+ (2024 edition)
-- Node.js 18+ (for Tauri)
-- OpenAI API key (or compatible LLM API)
-
-### From Source
-
-```bash
-# Clone repository
 git clone https://github.com/zAxCoder/OpenZax.git
 cd OpenZax
-
-# Install Trunk (for building Leptos UI)
-cargo install trunk
-
-# Install Tauri CLI
-npm install -g @tauri-apps/cli
-
-# Install WASM target
-rustup target add wasm32-unknown-unknown
-
-# Set API key
-export OPENZAX_API_KEY="your-api-key-here"
+cargo build -p openzax-cli --release
+cp target/release/openzax ~/.local/bin/  # or anywhere in PATH
 ```
 
-### Run Desktop Application
+## Quick Start
 
 ```bash
-# Development mode
-npm run tauri:dev
+# Set a free API key (no credit card required)
+export OPENROUTER_API_KEY=sk-or-v1-...
 
-# Production build
-npm run tauri:build
+# Launch
+openzax
 ```
 
-### Run Terminal Shell
+Get free keys from: [openrouter.ai/keys](https://openrouter.ai/keys) · [console.groq.com](https://console.groq.com) · [cloud.cerebras.ai](https://cloud.cerebras.ai)
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Terminal UI** | Monochrome TUI with command palette, model picker, skills browser |
+| **Multi-Model** | 12+ free models from OpenRouter, Groq, Cerebras |
+| **Build / Plan Modes** | Switch between code generation and architecture planning |
+| **WASM Skills** | Sandboxed WebAssembly plugins with capability-based security |
+| **MCP Client** | Model Context Protocol support for tool integration |
+| **Zero-Trust Security** | Ed25519 signing, encrypted storage, audit logging |
+| **Marketplace** | Discover, install, and publish skills |
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Switch between Build and Plan mode |
+| `Ctrl+T` | Cycle intelligence tier (high / max / auto) |
+| `Ctrl+P` | Open command palette |
+| `Ctrl+M` | Switch model |
+| `Ctrl+K` | Browse skills |
+| `Ctrl+N` | New session |
+| `Ctrl+C` | Exit |
+
+## Models
+
+OpenZax works with free models out of the box — no credit card required:
+
+| Provider | Models | Free Tier |
+|----------|--------|-----------|
+| **OpenRouter** | DeepSeek R1, Qwen3 235B, Llama 3.3 70B, Gemma 3 | Free with key |
+| **Groq** | Llama 3.3 70B, Mixtral 8x7B, Gemma 2 9B | 14,400 req/day |
+| **Cerebras** | Llama 3.3 70B, Qwen3 32B | 1M tokens/day |
+
+## Skills
+
+Skills are sandboxed WASM plugins that extend OpenZax capabilities:
 
 ```bash
-# Build with model management support
-cargo build --release --features llm-engine
-
-# Run shell
-cargo run --release --bin openzax shell
+openzax skill init my-skill --language rust
+openzax skill build --release
+openzax skill pack
+openzax skill publish my-skill-0.1.0.ozskill --key mykey.private.key
 ```
 
-### Model Management
+Built-in skills include: `webapp-testing`, `frontend-design`, `docker-expert`, `security-audit`, `api-design-patterns`, `database-schema-designer`, and more.
+
+## Architecture
+
+```
+OpenZax
+├── openzax-cli          Terminal UI + CLI commands
+├── openzax-core         Agent engine, event bus, storage
+├── openzax-shell        Terminal emulation, process management
+├── openzax-ai-core      Multi-model routing, Tree-of-Thought planning
+├── openzax-security     Zero-trust capabilities, encrypted storage
+├── openzax-wasm-runtime Wasmtime sandbox for WASM skills
+├── openzax-mcp-client   Model Context Protocol client
+├── openzax-skills-sdk   SDK for building skills
+├── openzax-skills-macros Procedural macros for skills
+├── openzax-llm-engine   Local model management (GGUF)
+├── openzax-marketplace  Skill marketplace REST API
+├── openzax-workflow      Workflow engine (DAG execution)
+├── openzax-enterprise   SSO, RBAC, fleet management
+└── openzax-test-harness Testing framework
+```
+
+See [docs/master-architecture-blueprint.md](docs/master-architecture-blueprint.md) for the full blueprint.
+
+## CLI Commands
+
+```
+openzax                    Launch the TUI
+openzax shell              Launch with options (--api-key, --model)
+openzax doctor             System health check
+openzax keygen             Generate Ed25519 keypair
+openzax skill init <name>  Create a new skill project
+openzax skill build        Build skill to WASM
+openzax skill pack         Package skill as .ozskill
+openzax search <query>     Search the marketplace
+openzax install <skill>    Install a skill
+openzax version            Show version
+```
+
+## Contributing
 
 ```bash
-# List local models
-openzax model list
-
-# Get model information
-openzax model info llama-3.3-70b-q4_k_m
-
-# Download instructions
-openzax model download llama-3.3-70b-q4_k_m
-
-# Remove a model
-openzax model remove old-model -y
-```
-
----
-
-## 📦 Features
-
-### Security First
-- **Zero-Trust Architecture** - Every operation requires explicit permission
-- **WASM Sandboxing** - Skills run in complete isolation
-- **Capability-Based Access** - Fine-grained permission control
-- **Resource Limits** - CPU and memory budgets enforced
-
-### High Performance
-- **5x Less Memory** - ~30 MB idle vs competitors' ~150 MB
-- **25x Smaller Binary** - <8 MB vs competitors' ~200 MB
-- **Near-Native WASM** - <5μs function call overhead
-- **Sub-1ms IPC** - Cap'n Proto serialization
-
-### Multi-Model Support
-- **Intelligent Routing** - Automatic model selection
-- **Local & Cloud** - llama.cpp + OpenAI/Anthropic/Google
-- **Cost Optimization** - Balance latency, cost, quality
-- **Hot-Swap** - Load/unload models at runtime
-
-### MCP Integration
-- **Full Protocol** - Tools, Resources, Prompts, Sampling
-- **Multiple Transports** - stdio, HTTP, WebSocket (planned)
-- **Type-Safe** - Rust type system ensures correctness
-- **Extensible** - Easy to add new MCP servers
-
----
-
-## 📊 Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                   OpenZax Platform                      │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │  LLM Engine  │  │  MCP Client  │  │ WASM Runtime │ │
-│  │              │  │              │  │              │ │
-│  │ • Router     │  │ • stdio      │  │ • Wasmtime   │ │
-│  │ • Local      │  │ • HTTP       │  │ • 6 WIT APIs │ │
-│  │ • Cloud      │  │ • Protocol   │  │ • Sandbox    │ │
-│  └──────────────┘  └──────────────┘  └──────────────┘ │
-│                                                         │
-├─────────────────────────────────────────────────────────┤
-│                    Core Engine                          │
-│  • Event Bus  • Agent Runtime  • Storage  • Security   │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## 📚 Documentation
-
-- [Master Architecture Blueprint](docs/master-architecture-blueprint.md) - Complete system design
-- [WASM Runtime Guide](docs/wasm-runtime-guide.md) - Skill development
-- [MCP Client Guide](docs/mcp-client-guide.md) - MCP integration
-- [LLM Engine Guide](docs/llm-engine-guide.md) - Model management
-- [CLI Documentation](crates/cli/README.md) - Command reference
-- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute
-
----
-
-## 🎯 Roadmap
-
-### ✅ Phase 0 - Foundation (Complete)
-- Rust workspace with 7 crates
-- Event-driven architecture
-- Agent runtime with LLM integration
-- SQLite storage
-- Terminal shell interface
-
-### ✅ Phase 1 Month 2 - WASM Sandbox (Complete)
-- Wasmtime 27.0 runtime
-- 6 WIT host interfaces
-- Fuel metering and memory limits
-- Example skills
-- Comprehensive documentation
-
-### ✅ Phase 1 Month 3 - MCP + LLM (Complete)
-- MCP client (stdio, HTTP)
-- Full protocol support
-- LLM engine with model router
-- Local model manager
-- Model management CLI
-
-### ✅ Phase 1 Month 4 - UI (Complete)
-- Tauri v2 desktop application
-- Leptos UI framework
-- Command palette with fuzzy search
-- Multi-panel workspace layout
-
-### 📅 Phase 2 - Ecosystem (Months 5-7) - Next
-- Skills SDK v1.0
-- Marketplace backend
-- Visual workflow editor
-
-### 📅 Phase 3 - Community (Months 8-10)
-- Public marketplace
-- Community review system
-- Cloud model routing
-
-### 📅 Phase 4 - Enterprise (Months 11-14)
-- SSO/SAML + RBAC
-- Fleet management
-- Hosted orchestration
-- SOC 2 compliance
-
----
-
-## 🔧 Development
-
-### Build
-
-```bash
-# Standard build
+git clone https://github.com/zAxCoder/OpenZax.git
+cd OpenZax
 cargo build
-
-# Release build with all features
-cargo build --release --all-features
-
-# With model management
-cargo build --release --features llm-engine
+cargo test
 ```
 
-### Test
+## License
 
-```bash
-# Run all tests
-cargo test --all-features
-
-# Run specific crate tests
-cargo test -p openzax-core
-```
-
-### Format & Lint
-
-```bash
-# Format code
-cargo fmt --all
-
-# Run lints
-cargo clippy --all-targets --all-features
-```
-
----
-
-## 📈 Performance Metrics
-
-| Metric | Target | Achieved | Status |
-|---|---|---|---|
-| Memory (idle) | <50 MB | ~30 MB | ✅ Exceeded |
-| Binary size | <10 MB | <8 MB | ✅ Exceeded |
-| WASM call | <10 μs | ~1-5 μs | ✅ Exceeded |
-| Event latency | <1 ms | <1 ms | ✅ Met |
-| Module load | <10 ms | ~5-10 ms | ✅ Met |
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Areas for Contribution
-
-- 🐛 Bug fixes and testing
-- 📝 Documentation improvements
-- 🎨 UI/UX enhancements (Phase 1 Month 4)
-- 🔌 MCP server integrations
-- 🧩 WASM skill development
-- 🌐 Translations
-
----
-
-## 📄 License
-
-Dual-licensed under:
-- MIT License ([LICENSE-MIT](LICENSE-MIT))
-- Apache License 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-
-You may choose either license for your use.
-
----
-
-## 🙏 Acknowledgments
-
-Built with:
-- [Rust](https://www.rust-lang.org/) - Systems programming language
-- [Tokio](https://tokio.rs/) - Async runtime
-- [Wasmtime](https://wasmtime.dev/) - WASM runtime
-- [SQLite](https://www.sqlite.org/) - Database
-- [Tauri](https://tauri.app/) - Desktop framework (Phase 1 Month 4)
-
-Inspired by:
-- Model Context Protocol (MCP) specification
-- WebAssembly Component Model
-- Zero-trust security principles
-
----
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/openzax/openzax/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/openzax/openzax/discussions)
-- **Documentation**: [docs/](docs/)
-
----
-
-## 🌟 Star History
-
-If you find OpenZax useful, please consider giving it a star! ⭐
-
----
-
-**Status**: ✅ Phase 1 Complete - Ready for Phase 2  
-**Version**: 0.5.0  
-**Last Updated**: 2026-03-01
+MIT

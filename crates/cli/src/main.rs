@@ -29,7 +29,7 @@ enum Commands {
     Shell {
         #[arg(short, long)]
         api_key: Option<String>,
-        #[arg(short, long, default_value = "gpt-4")]
+        #[arg(short, long, default_value = "deepseek/deepseek-r1-0528:free")]
         model: String,
         #[arg(short, long, default_value = ".openzax/openzax.db")]
         db_path: PathBuf,
@@ -295,8 +295,8 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
         None => {
-            let api_key = std::env::var("OPENZAX_API_KEY").ok();
-            let model = "gpt-4".to_string();
+            let api_key = std::env::var("OPENZAX_API_KEY").ok().or_else(|| std::env::var("OPENROUTER_API_KEY").ok());
+            let model = "deepseek/deepseek-r1-0528:free".to_string();
             let db_path = std::path::PathBuf::from(".openzax/openzax.db");
             tui::run_tui(model, api_key, db_path).await?;
         }
