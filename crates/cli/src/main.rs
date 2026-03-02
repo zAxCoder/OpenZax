@@ -230,6 +230,7 @@ fn load_api_key_from_config() -> Option<String> {
     None
 }
 
+#[allow(dead_code)]
 async fn check_for_update() -> Option<String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(2))
@@ -1142,11 +1143,11 @@ fn skill_inspect(path: &PathBuf) -> anyhow::Result<()> {
         for p in perms {
             let perm = p.as_str().unwrap_or("?");
             let icon = if perm.starts_with("net:") || perm.starts_with("http:") {
-                "🌐"
+                "[net]"
             } else if perm.starts_with("fs:") {
-                "📁"
+                "[fs]"
             } else {
-                "🔑"
+                "[key]"
             };
             println!("    {} {}", icon, perm.bright_yellow());
         }

@@ -61,20 +61,20 @@ let client = McpClient::new(Box::new(transport), config);
 ## Protocol Support
 
 ### Tools
-- ✅ `tools/list` - List available tools
-- ✅ `tools/call` - Invoke a tool
+- `tools/list` - List available tools
+- `tools/call` - Invoke a tool
 
 ### Resources
-- ✅ `resources/list` - List available resources
-- ✅ `resources/read` - Read resource content
-- ✅ `resources/subscribe` - Subscribe to resource changes
+- `resources/list` - List available resources
+- `resources/read` - Read resource content
+- `resources/subscribe` - Subscribe to resource changes
 
 ### Prompts
-- ✅ `prompts/list` - List available prompts
-- ✅ `prompts/get` - Get prompt with arguments
+- `prompts/list` - List available prompts
+- `prompts/get` - Get prompt with arguments
 
 ### Sampling
-- ✅ `sampling/createMessage` - Request model completion
+- `sampling/createMessage` - Request model completion
 
 ## Architecture
 

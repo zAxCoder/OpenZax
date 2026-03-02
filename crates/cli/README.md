@@ -177,13 +177,13 @@ openzax shell --db-path ./my-data.db
 
 ## Features
 
-- 🦀 **Rust-native** - Fast and memory-safe
-- 🔐 **Secure** - Ed25519 signing for skills
-- 🎨 **Beautiful TUI** - Rich terminal interface with ratatui
-- 🔌 **MCP Support** - Model Context Protocol integration
-- 📦 **Skill Marketplace** - Discover and share skills
-- 🤖 **Local & Cloud LLMs** - Support for both local and cloud models
-- 🛡️ **WASM Sandbox** - Secure skill execution
+- **Rust-native** - Fast and memory-safe
+- **Secure** - Ed25519 signing for skills
+- **Beautiful TUI** - Rich terminal interface with ratatui
+- **MCP Support** - Model Context Protocol integration
+- **Skill Marketplace** - Discover and share skills
+- **Local & Cloud LLMs** - Support for both local and cloud models
+- **WASM Sandbox** - Secure skill execution
 
 ## Development
 

@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.0] - 2026-03-01
 
-### Added - Phase 1 Month 3: Model Management CLI ✅
+### Added - Phase 1 Month 3: Model Management CLI
 
 #### Model Management Commands
 - **`openzax model list`**: List all local GGUF models
@@ -71,7 +71,7 @@ llama-cpp = ["llm-engine", "openzax-llm-engine/llama-cpp"]
 ```
 
 #### Completion Status
-- Phase 1 Month 3: 100% ✅
+- Phase 1 Month 3: 100%
 - Overall Project: 30% complete
 
 ## [0.3.0] - 2026-03-01
@@ -173,14 +173,14 @@ llama-cpp = ["llm-engine", "openzax-llm-engine/llama-cpp"]
 
 ## Project Milestones
 
-### Phase 0 - Foundation ✅ COMPLETED
+### Phase 0 - Foundation COMPLETED
 - Week 1: Project scaffolding
 - Week 2: Core event bus
 - Week 3: Basic agent loop
 - Week 4: Terminal shell + SQLite
 
-### Phase 1 - Core Platform 🔄 IN PROGRESS
-- Month 2: WASM sandbox runtime ✅ COMPLETED
+### Phase 1 - Core Platform [active] IN PROGRESS
+- Month 2: WASM sandbox runtime COMPLETED
 - Month 3: MCP client + local LLM (current)
 - Month 4: Command palette + chat UI
 
@@ -222,23 +222,23 @@ llama-cpp = ["llm-engine", "openzax-llm-engine/llama-cpp"]
 
 ### Added - Phase 1 Month 3: MCP Client + LLM Engine
 
-#### MCP Protocol Implementation ✅
+#### MCP Protocol Implementation
 - Complete JSON-RPC 2.0 protocol support
 - Type-safe protocol definitions for all MCP operations
 - Request/response handling with error recovery
 
-#### Transport Layer ✅
+#### Transport Layer
 - **Stdio Transport**: Local MCP servers via stdin/stdout
 - **HTTP Transport**: Remote MCP servers via HTTP
 - Connection management and health checks
 
-#### MCP Capabilities ✅
+#### MCP Capabilities
 - **Tools**: Discovery and invocation
 - **Resources**: Data source access
 - **Prompts**: Template management
 - **Sampling**: Model completion requests
 
-#### LLM Engine ✅
+#### LLM Engine
 - **Model Router**: Intelligent model selection
   - Scoring function (latency, cost, capability, quality)
   - Weighted selection algorithm
@@ -247,7 +247,7 @@ llama-cpp = ["llm-engine", "openzax-llm-engine/llama-cpp"]
 - **Cloud Provider**: OpenAI/Anthropic/Google support
 - **Multi-Model Architecture**: Unified interface
 
-#### Developer Experience ✅
+#### Developer Experience
 - Example MCP filesystem integration
 - Complete MCP Client Guide (50+ pages)
 - LLM Engine README and examples

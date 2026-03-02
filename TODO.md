@@ -1,28 +1,28 @@
 # OpenZax - Implementation Progress
 
-## Phase 0 — Foundation (Weeks 1-4) ✅ COMPLETED
+## Phase 0 — Foundation (Weeks 1-4) COMPLETED
 
-### Week 1: Project Scaffolding ✅
+### Week 1: Project Scaffolding
 - [x] Cargo workspace setup with core, shell, sdk, cli crates
 - [x] CI/CD pipeline configuration (GitHub Actions)
 - [x] License files (MIT + Apache 2.0)
 - [x] .gitignore configuration
 - [x] README.md with quick start guide
 
-### Week 2: Core Event Bus ✅
+### Week 2: Core Event Bus
 - [x] Cap'n Proto-ready event bus structure
 - [x] Event types: UserInput, AgentOutput, SystemEvent, AgentThinking, AgentTokenStream
 - [x] Tokio broadcast channel for pub/sub
 - [x] Event serialization with serde
 
-### Week 3: Basic Agent Loop ✅
+### Week 3: Basic Agent Loop
 - [x] Simple request → model → response loop
 - [x] reqwest client for cloud API calls
 - [x] Streaming token output support
 - [x] AgentConfig with temperature, max_tokens, model selection
 - [x] Error handling with thiserror
 
-### Week 4: Terminal Shell + SQLite ✅
+### Week 4: Terminal Shell + SQLite
 - [x] Terminal shell interface with readline
 - [x] SQLite database initialization
 - [x] Conversations and messages tables
@@ -32,9 +32,9 @@
 
 ---
 
-## Phase 1 — Core Platform (Months 2-4) ✅ COMPLETED
+## Phase 1 — Core Platform (Months 2-4) COMPLETED
 
-### Month 2: WASM Sandbox Runtime ✅
+### Month 2: WASM Sandbox Runtime
 - [x] Wasmtime 27.0 integration
 - [x] Fuel metering for CPU limits
 - [x] Memory limits configuration
@@ -52,7 +52,7 @@
 - [x] Example "hello-skill" WASM module
 - [x] Comprehensive documentation
 
-### Month 3: MCP Client + Local LLM ✅
+### Month 3: MCP Client + Local LLM
 - [x] Native MCP client implementation
   - [x] stdio transport
   - [x] HTTP transport
@@ -76,7 +76,7 @@
   - [ ] GPU detection (CUDA/Metal/Vulkan) (placeholder)
 - [x] CLI commands for model management
 
-### Month 4: Command Palette + Chat UI ✅
+### Month 4: Command Palette + Chat UI
 - [x] Tauri v2 desktop application
 - [x] Leptos UI framework integration
 - [x] Nucleo fuzzy finder (Command palette)
@@ -86,9 +86,9 @@
 
 ---
 
-## Phase 2 — Ecosystem (Months 5-7) ✅ COMPLETED
+## Phase 2 — Ecosystem (Months 5-7) COMPLETED
 
-### Month 5: Skills SDK v1.0 ✅
+### Month 5: Skills SDK v1.0
 - [x] Rust SDK crate with proc macros (`crates/skills-sdk`, `crates/skills-macros`)
   - [x] `#[skill_main]` macro
   - [x] `#[derive(Skill)]` macro
@@ -123,7 +123,7 @@
   - [x] TestSuiteResult with summary
 - [x] Skills SDK Guide documentation
 
-### Month 6: Marketplace Backend ✅
+### Month 6: Marketplace Backend
 - [x] REST API with axum (`crates/marketplace/`)
   - [x] `GET /v1/skills` — list/search with filters
   - [x] `GET /v1/skills/:id` — skill detail
@@ -151,7 +151,7 @@
 - [x] CDN setup stub (Cloudflare R2 config placeholder)
 - [x] Stripe Connect integration (structure ready)
 
-### Month 7: Visual Workflow Editor ✅
+### Month 7: Visual Workflow Editor
 - [x] Workflow graph engine (`crates/workflow/`)
   - [x] WorkflowNode with 11 node types
   - [x] WorkflowEdge with typed ports
@@ -182,9 +182,9 @@
 
 ---
 
-## Phase 3 — Community Launch (Months 8-10) ✅ COMPLETED
+## Phase 3 — Community Launch (Months 8-10) COMPLETED
 
-### Month 8: Public Marketplace Launch ✅
+### Month 8: Public Marketplace Launch
 - [x] Marketplace web API fully implemented (see Month 6)
 - [x] Searchable skill catalog with category/tag filtering
 - [x] Skill detail pages (API)
@@ -202,7 +202,7 @@
 - [x] `openzax search` CLI command (calls marketplace API)
 - [x] `openzax install` CLI command (downloads + verifies signature)
 
-### Month 9: Cloud Model Routing ✅
+### Month 9: Cloud Model Routing
 - [x] Multi-model router (`crates/ai-core/src/router.rs`)
   - [x] Scoring function (40% capability, 30% latency, 20% cost, 10% local preference)
   - [x] Model registry in SQLite
@@ -219,7 +219,7 @@
 - [x] Stripe metered billing stub (orchestration.rs UsageReport)
 - [x] Usage analytics (meter_usage() → UsageReport)
 
-### Month 10: Community Features ✅
+### Month 10: Community Features
 - [x] Skill ratings and reviews system (marketplace/types.rs Review, SkillRating)
   - [x] 1-5 star ratings
   - [x] Review comments
@@ -238,9 +238,9 @@
 
 ---
 
-## 🏢 Phase 4 — Enterprise (Months 11-14) ✅ COMPLETED
+## Phase 4 — Enterprise (Months 11-14) COMPLETED
 
-### Month 11: SSO/SAML + RBAC ✅
+### Month 11: SSO/SAML + RBAC
 - [x] SAML 2.0 authentication (`crates/enterprise/src/auth.rs`)
   - [x] SAML AuthnRequest generation
   - [x] SAML response processing and assertion validation
@@ -276,7 +276,7 @@
 - [x] `openzax whoami` CLI command
 - [x] `openzax keygen` CLI command (Ed25519 keypair)
 
-### Month 12: Fleet Management ✅
+### Month 12: Fleet Management
 - [x] Centralized configuration system (`crates/enterprise/src/fleet.rs`)
 - [x] Remote skill deployment (`deploy_skill()`)
 - [x] Policy enforcement (`FleetPolicy`)
@@ -297,7 +297,7 @@
   - [x] Rollback to version
 - [x] Endpoint heartbeat and health tracking
 
-### Month 13: Hosted Orchestration ✅
+### Month 13: Hosted Orchestration
 - [x] Task queue (`crates/enterprise/src/orchestration.rs`)
   - [x] Priority-based task submission
   - [x] Task status transitions (Queued → Running → Completed/Failed)
@@ -314,7 +314,7 @@
 - [x] Auto-scaling stub (worker pool structure)
 - [x] Kubernetes/Firecracker architecture (documented in blueprint)
 
-### Month 14: Audit + Compliance ✅
+### Month 14: Audit + Compliance
 - [x] SOC 2 Type II control checks (`crates/enterprise/src/compliance.rs`)
   - [x] CC6.1 (logical access controls)
   - [x] CC6.7 (transmission protection)
@@ -337,7 +337,7 @@
 
 ---
 
-## 🔒 Security Implementation ✅ COMPLETED
+## Security Implementation COMPLETED
 
 ### Zero-Trust Capability Architecture (`crates/security/`)
 - [x] Security kernel implementation
@@ -418,7 +418,7 @@
 
 ---
 
-## 🤖 AI Core System ✅ COMPLETED (`crates/ai-core/`)
+## AI Core System COMPLETED (`crates/ai-core/`)
 
 ### Multi-Model Router (`router.rs`)
 - [x] Scoring function (40% capability / 30% latency / 20% cost / 10% local)
@@ -481,7 +481,7 @@
 
 ---
 
-## 🔧 Developer Platform ✅ COMPLETED
+## Developer Platform COMPLETED
 
 ### CLI Toolchain (`crates/cli/`)
 - [x] `openzax shell` — interactive terminal
@@ -545,7 +545,7 @@
 
 ---
 
-## 💰 Monetization ✅ (Architecture Complete)
+## Monetization (Architecture Complete)
 
 ### Tier Structure
 - [x] Free tier definition (core runtime, local AI, 5 skills)
@@ -570,7 +570,7 @@
 
 ---
 
-## 📊 Monitoring & Analytics
+## Monitoring & Analytics
 
 ### Application Monitoring
 - [x] Structured logging (tracing crate throughout)
@@ -587,7 +587,7 @@
 
 ---
 
-## 🧪 Testing Strategy
+## Testing Strategy
 
 ### Unit Tests
 - [x] Core engine tests
@@ -603,7 +603,7 @@
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 ### Developer Documentation
 - [x] Architecture overview (master-architecture-blueprint.md)
@@ -626,7 +626,7 @@
 
 ---
 
-## 🚢 Release Management
+## Release Management
 
 ### Distribution
 - [ ] Windows installer (.msi)
@@ -642,7 +642,7 @@
 
 ---
 
-## 🎯 Success Metrics
+## Success Metrics
 
 ### Phase 4 (Month 14) — Enterprise
 - [ ] 50 enterprise accounts (requires GTM)
@@ -677,7 +677,7 @@
 - TypeScript: `sdk/typescript/` (`@openzax/sdk`)
 - Python: `sdk/python/` (`openzax-sdk`)
 
-**Status: Phase 0–4 architecture and core implementation complete ✅**
+**Status: Phase 0–4 architecture and core implementation complete **
 
 ---
 

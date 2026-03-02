@@ -46,11 +46,11 @@ fn ExplorerPanel() -> impl IntoView {
             <div class="panel-header">"File Explorer"</div>
             <div class="panel-content">
                 <div class="file-tree">
-                    <div class="file-item folder">"📁 src"</div>
-                    <div class="file-item file">"  📄 main.rs"</div>
-                    <div class="file-item file">"  📄 lib.rs"</div>
-                    <div class="file-item folder">"📁 docs"</div>
-                    <div class="file-item file">"  📄 README.md"</div>
+                    <div class="file-item folder">"> src"</div>
+                    <div class="file-item file">"  - main.rs"</div>
+                    <div class="file-item file">"  - lib.rs"</div>
+                    <div class="file-item folder">"> docs"</div>
+                    <div class="file-item file">"  - README.md"</div>
                 </div>
             </div>
         </div>

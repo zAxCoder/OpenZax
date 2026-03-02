@@ -231,4 +231,4 @@ After installation:
    openzax
    ```
 
-Enjoy using OpenZax! 🚀
+Enjoy using OpenZax!

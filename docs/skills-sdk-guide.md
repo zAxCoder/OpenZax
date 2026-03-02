@@ -6,9 +6,9 @@ The OpenZax Skills SDK enables developers to create secure, sandboxed extensions
 
 ## Supported Languages
 
-- **Rust** ✅ (Fully supported)
-- **TypeScript** 🚧 (Coming in Phase 2)
-- **Python** 🚧 (Coming in Phase 2)
+- **Rust** [done] (Fully supported)
+- **TypeScript** [wip] (Coming in Phase 2)
+- **Python** [wip] (Coming in Phase 2)
 
 ## Quick Start
 

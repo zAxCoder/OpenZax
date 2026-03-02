@@ -109,7 +109,7 @@ pub fn CodeBlock(
                     class="copy-button"
                     on:click=copy_to_clipboard
                 >
-                    {move || if copied.get() { "✓ Copied" } else { "Copy" }}
+                    {move || if copied.get() { "Copied" } else { "Copy" }}
                 </button>
             </div>
             <pre class="code-block">

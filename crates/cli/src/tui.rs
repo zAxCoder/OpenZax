@@ -11,7 +11,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, Paragraph, Wrap},
+    widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
     Frame, Terminal,
 };
 use std::{
@@ -42,8 +42,6 @@ const BG_INPUT: Color = Color::Rgb(22, 22, 22);
 const BG_POPUP: Color = Color::Rgb(20, 20, 20);
 const BG_SEL:   Color = Color::Rgb(220, 220, 220);
 
-const BD:       Color = Color::Rgb(55, 55, 55);
-
 const W:        Color = Color::Rgb(245, 245, 245);
 const G1:       Color = Color::Rgb(180, 180, 180);
 const G2:       Color = Color::Rgb(120, 120, 120);
@@ -51,22 +49,27 @@ const G3:       Color = Color::Rgb(70, 70, 70);
 const G4:       Color = Color::Rgb(45, 45, 45);
 const BLK:      Color = Color::Rgb(10, 10, 10);
 
-// ─── Brand logo (clean block font, 5 rows, 41 chars wide) ────────────────────
-//
-//   O     P     E     N       Z     A     X
-//  ███  ████  ████  █   █  █████  ███  █   █
-// █   █ █   █ █    ██  █     █   █   █ █   █
-// █   █ ████  ███  █ █ █    █   █████   █
-// █   █ █    █    █  ██    █    █   █  █ █
-//  ███  █    ████ █   █  █████ █   █ █   █
+// ─── Brand logo (two-tone block font) ────────────────────────────────────────
 
-const BRAND: &[&str] = &[
-    " ███  ████  ████  █   █ █████  ███  █   █",
-    "█   █ █   █ █    ██  █    █   █   █  █ █ ",
-    "█   █ ████  ███  █ █ █   █    █████   █   ",
-    "█   █ █    █    █  ██   █     █   █  █ █  ",
-    " ███  █    ████  █   █ █████  █   █ █   █ ",
+const BRAND_OPEN: &[&str] = &[
+    " ██████  ██████  ███████ ███    ██",
+    "██    ██ ██   ██ ██      ████   ██",
+    "██    ██ ██████  █████   ██ ██  ██",
+    "██    ██ ██      ██      ██  ██ ██",
+    " ██████  ██      ███████ ██   ████",
 ];
+
+const BRAND_ZAX: &[&str] = &[
+    "███████  █████  ██   ██",
+    "   ███  ██   ██  ██ ██ ",
+    "  ███   ███████   ███  ",
+    " ███    ██   ██  ██ ██ ",
+    "███████ ██   ██ ██   ██",
+];
+
+const ACCENT_BLUE: Color = Color::Rgb(100, 180, 255);
+const ACCENT_GOLD: Color = Color::Rgb(255, 180, 60);
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // ─── Intelligence tiers ──────────────────────────────────────────────────────
 
@@ -433,7 +436,7 @@ fn render(f: &mut Frame, app: &mut App) {
 
 fn draw_empty(f: &mut Frame, app: &App) {
     let a = f.area();
-    let brand_h = BRAND.len() as u16;
+    let brand_h = BRAND_OPEN.len() as u16;
     let ih = input_height(app);
     let content_h = brand_h + 2 + ih + 2 + 1 + 2 + 1;
     let top = a.height.saturating_sub(content_h) / 2;
@@ -441,42 +444,47 @@ fn draw_empty(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(top),      // [0] top padding
-            Constraint::Length(brand_h),  // [1] brand logo
-            Constraint::Length(2),        // [2] gap
-            Constraint::Length(ih),       // [3] input box
-            Constraint::Length(2),        // [4] mode + tier
-            Constraint::Length(1),        // [5] empty
-            Constraint::Length(2),        // [6] shortcuts
-            Constraint::Length(1),        // [7] empty
-            Constraint::Min(0),           // [8] rest
-            Constraint::Length(1),        // [9] bottom tip
+            Constraint::Length(top),
+            Constraint::Length(brand_h),
+            Constraint::Length(2),
+            Constraint::Length(ih),
+            Constraint::Length(2),
+            Constraint::Length(1),
+            Constraint::Length(2),
+            Constraint::Length(1),
+            Constraint::Min(0),
+            Constraint::Length(1),
         ])
         .split(a);
 
-    // Brand logo
+    // Two-tone brand logo
     let mut bl: Vec<Line> = Vec::new();
-    for line in BRAND {
-        let styled: String = line.replace('\u{2588}', "\u{2588}"); // already has block chars
-        bl.push(Line::from(Span::styled(styled, Style::default().fg(W).add_modifier(Modifier::BOLD))));
+    for i in 0..BRAND_OPEN.len() {
+        bl.push(Line::from(vec![
+            Span::styled(BRAND_OPEN[i], Style::default().fg(ACCENT_BLUE).add_modifier(Modifier::BOLD)),
+            Span::styled("  ", Style::default()),
+            Span::styled(BRAND_ZAX[i], Style::default().fg(ACCENT_GOLD).add_modifier(Modifier::BOLD)),
+        ]));
     }
     f.render_widget(
         Paragraph::new(bl).alignment(Alignment::Center).style(Style::default().bg(BG)),
         chunks[1],
     );
 
-    // Input
+    // Input (wider)
     let ic = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(15), Constraint::Percentage(70), Constraint::Percentage(15)])
+        .constraints([Constraint::Percentage(10), Constraint::Percentage(80), Constraint::Percentage(10)])
         .split(chunks[3]);
     draw_input(f, app, ic[1]);
 
-    // Mode + tier
+    // Mode + model + tier
     let ml = Line::from(vec![
         Span::styled(app.mode_label(), Style::default().fg(W).add_modifier(Modifier::BOLD)),
+        Span::styled("  ", Style::default().fg(G4)),
+        Span::styled(app.model_short.as_str(), Style::default().fg(G2)),
         Span::styled("  ·  ", Style::default().fg(G4)),
-        Span::styled(app.tier(), Style::default().fg(G2)),
+        Span::styled(app.tier(), Style::default().fg(ACCENT_GOLD)),
     ]);
     f.render_widget(Paragraph::new(ml).alignment(Alignment::Center).style(Style::default().bg(BG)), chunks[4]);
 
@@ -493,24 +501,25 @@ fn draw_empty(f: &mut Frame, app: &App) {
     ]);
     f.render_widget(Paragraph::new(sc).alignment(Alignment::Center).style(Style::default().bg(BG)), chunks[6]);
 
-    // Bottom tip
-    let tip = Line::from(vec![
-        Span::styled("Ctrl+N ", Style::default().fg(G3)),
-        Span::styled("new   ", Style::default().fg(G4)),
-        Span::styled("Ctrl+K ", Style::default().fg(G3)),
-        Span::styled("skills   ", Style::default().fg(G4)),
-        Span::styled("/help ", Style::default().fg(G3)),
-        Span::styled("commands   ", Style::default().fg(G4)),
-        Span::styled("Shift+Enter ", Style::default().fg(G3)),
-        Span::styled("new line", Style::default().fg(G4)),
+    // Bottom: CWD (left) + version (right)
+    let cwd = std::env::current_dir()
+        .map(|p| p.display().to_string())
+        .unwrap_or_default();
+    let ver_str = format!("OpenZax {}", VERSION);
+    let gap = (a.width as usize).saturating_sub(cwd.len() + ver_str.len() + 4);
+    let bottom = Line::from(vec![
+        Span::styled(format!(" {}", cwd), Style::default().fg(G3)),
+        Span::styled(" ".repeat(gap), Style::default()),
+        Span::styled(format!("{} ", ver_str), Style::default().fg(G3)),
     ]);
-    f.render_widget(Paragraph::new(tip).alignment(Alignment::Center).style(Style::default().bg(BG)), chunks[9]);
+    f.render_widget(Paragraph::new(bottom).style(Style::default().bg(BG)), chunks[9]);
 }
 
 fn draw_input(f: &mut Frame, app: &App, area: Rect) {
     let blk = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(if app.phase == Phase::Stream { G3 } else { BD }))
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(if app.phase == Phase::Stream { G3 } else { G2 }))
         .style(Style::default().bg(BG_INPUT));
     let inner = blk.inner(area);
     f.render_widget(blk, area);
@@ -523,7 +532,8 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
         all_lines.push(Line::from(vec![
             Span::styled(" > ", Style::default().fg(G1).add_modifier(Modifier::BOLD)),
             Span::styled(cursor_char, Style::default().fg(W)),
-            Span::styled(" Ask anything...", Style::default().fg(G4)),
+            Span::styled("Ask anything...  ", Style::default().fg(G4)),
+            Span::styled("\"Fix broken tests\"", Style::default().fg(G3)),
         ]));
     } else {
         let before = &app.input[..app.cursor];
@@ -658,6 +668,7 @@ fn draw_bottom(f: &mut Frame, app: &App, area: Rect) {
         Span::styled(". ", Style::default().fg(G4)),
         Span::styled(app.tier(), Style::default().fg(G2)),
         Span::styled(format!("  {}  ", app.model_short), Style::default().fg(G3)),
+        Span::styled(format!("  . OpenZax {}", VERSION), Style::default().fg(G4)),
     ]);
     f.render_widget(Paragraph::new(info).style(Style::default().bg(BG)), rows[0]);
     draw_input(f, app, rows[1]);
@@ -687,19 +698,30 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect) {
     let inner = area.inner(Margin { horizontal: 2, vertical: 1 });
     let title = app.msgs.iter().find_map(|m| if let Msg::User(t) = m { Some(t.chars().take(20).collect::<String>()) } else { None }).unwrap_or_else(|| "New session".into());
 
+    let cwd = std::env::current_dir()
+        .map(|p| {
+            let s = p.display().to_string();
+            if s.len() > 26 { format!("...{}", &s[s.len()-23..]) } else { s }
+        })
+        .unwrap_or_default();
+
     let l = vec![
         Line::from(Span::styled(&title, Style::default().fg(W).add_modifier(Modifier::BOLD))),
         Line::default(),
-        Line::from(Span::styled("Context", Style::default().fg(G2).add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled("Context", Style::default().fg(ACCENT_BLUE).add_modifier(Modifier::BOLD))),
         Line::from(Span::styled(format!("  {} tokens", app.session_tokens), Style::default().fg(G3))),
         Line::from(Span::styled(format!("  {:.0}s elapsed", app.secs()), Style::default().fg(G3))),
         Line::from(Span::styled("  $0.00 (free)", Style::default().fg(G2))),
         Line::default(),
-        Line::from(Span::styled("Model", Style::default().fg(G2).add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled("Model", Style::default().fg(ACCENT_BLUE).add_modifier(Modifier::BOLD))),
         Line::from(Span::styled(format!("  {}", app.model_short), Style::default().fg(W))),
         Line::from(Span::styled(format!("  {}", app.model_provider), Style::default().fg(G3))),
         Line::default(),
-        Line::from(Span::styled("Free API keys", Style::default().fg(G2).add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled("Session", Style::default().fg(ACCENT_BLUE).add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled(format!("  {} . {}", app.mode_label(), app.tier()), Style::default().fg(G3))),
+        Line::from(Span::styled(format!("  {}", cwd), Style::default().fg(G3))),
+        Line::default(),
+        Line::from(Span::styled("Free API keys", Style::default().fg(ACCENT_BLUE).add_modifier(Modifier::BOLD))),
         Line::from(Span::styled("  openrouter.ai/keys", Style::default().fg(G1))),
         Line::from(Span::styled("  console.groq.com", Style::default().fg(G1))),
         Line::from(Span::styled("  cloud.cerebras.ai", Style::default().fg(G1))),
