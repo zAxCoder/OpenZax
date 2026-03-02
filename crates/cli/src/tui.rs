@@ -16,10 +16,12 @@ use ratatui::{
 };
 use std::{
     io,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::{Duration, Instant},
 };
-use dirs;
 use openzax_core::{
     agent::{Agent, AgentConfig},
     event::{Event as OzEvent, EventBus},
@@ -28,12 +30,16 @@ use openzax_core::{
 use uuid::Uuid;
 use chrono::Utc;
 
-// ─── Palette (monochrome: black / grays / white) ─────────────────────────────
+// ─── Ctrl+C global exit flag ─────────────────────────────────────────────────
+
+static EXIT_FLAG: AtomicBool = AtomicBool::new(false);
+
+// ─── Palette ─────────────────────────────────────────────────────────────────
 
 const BG:       Color = Color::Rgb(10, 10, 10);
 const BG_PANEL: Color = Color::Rgb(16, 16, 16);
 const BG_INPUT: Color = Color::Rgb(22, 22, 22);
-const BG_POPUP: Color = Color::Rgb(18, 18, 18);
+const BG_POPUP: Color = Color::Rgb(20, 20, 20);
 const BG_SEL:   Color = Color::Rgb(220, 220, 220);
 
 const BD:       Color = Color::Rgb(55, 55, 55);
@@ -45,15 +51,21 @@ const G3:       Color = Color::Rgb(70, 70, 70);
 const G4:       Color = Color::Rgb(45, 45, 45);
 const BLK:      Color = Color::Rgb(10, 10, 10);
 
-// ─── Brand (ANSI Shadow style) ───────────────────────────────────────────────
+// ─── Brand logo (clean block font, 5 rows, 41 chars wide) ────────────────────
+//
+//   O     P     E     N       Z     A     X
+//  ███  ████  ████  █   █  █████  ███  █   █
+// █   █ █   █ █    ██  █     █   █   █ █   █
+// █   █ ████  ███  █ █ █    █   █████   █
+// █   █ █    █    █  ██    █    █   █  █ █
+//  ███  █    ████ █   █  █████ █   █ █   █
 
 const BRAND: &[&str] = &[
-    " ██████╗ ██████╗ ███████╗███╗   ██╗███████╗ █████╗ ██╗  ██╗",
-    "██╔═══██╗██╔══██╗██╔════╝████╗  ██║╚══███╔╝██╔══██╗╚██╗██╔╝",
-    "██║   ██║██████╔╝█████╗  ██╔██╗ ██║  ███╔╝ ███████║ ╚███╔╝ ",
-    "██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║ ███╔╝  ██╔══██║ ██╔██╗ ",
-    "╚██████╔╝██║     ███████╗██║ ╚████║███████╗██║  ██║██╔╝ ██╗",
-    " ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝",
+    " ███  ████  ████  █   █ █████  ███  █   █",
+    "█   █ █   █ █    ██  █    █   █   █  █ █ ",
+    "█   █ ████  ███  █ █ █   █    █████   █   ",
+    "█   █ █    █    █  ██   █     █   █  █ █  ",
+    " ███  █    ████  █   █ █████  █   █ █   █ ",
 ];
 
 // ─── Intelligence tiers ──────────────────────────────────────────────────────
@@ -68,26 +80,24 @@ pub struct FreeModel {
     pub ctx: &'static str,
     pub provider: &'static str,
     pub api_url: &'static str,
+    pub key_env: &'static str,
 }
 
 const FREE_MODELS: &[FreeModel] = &[
-    // ── OpenRouter ───────────────────────────────────────────────────────────
-    FreeModel { id: "arcee-ai/trinity-large-preview:free",           display: "Trinity Large",     ctx: "128K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
-    FreeModel { id: "stepfun/step-3.5-flash:free",                   display: "Step 3.5 Flash",    ctx: "256K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
-    FreeModel { id: "deepseek/deepseek-r1-0528:free",                display: "DeepSeek R1",       ctx: "128K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
-    FreeModel { id: "qwen/qwen3-235b-a22b:free",                     display: "Qwen3 235B",        ctx: "40K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
-    FreeModel { id: "meta-llama/llama-3.3-70b-instruct:free",        display: "Llama 3.3 70B",     ctx: "128K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
-    FreeModel { id: "mistralai/mistral-small-3.1-24b-instruct:free", display: "Mistral Small 3.1", ctx: "96K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
-    FreeModel { id: "google/gemma-3-27b-it:free",                    display: "Gemma 3 27B",       ctx: "96K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
-    FreeModel { id: "google/gemma-3-4b-it:free",                     display: "Gemma 3 4B",        ctx: "32K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
-    // ── Groq ────────────────────────────────────────────────────────────────
-    FreeModel { id: "llama-3.3-70b-versatile",                       display: "Llama 3.3 70B",     ctx: "128K", provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions" },
-    FreeModel { id: "llama-3.1-8b-instant",                          display: "Llama 3.1 8B",      ctx: "128K", provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions" },
-    FreeModel { id: "gemma2-9b-it",                                  display: "Gemma 2 9B",        ctx: "8K",   provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions" },
-    FreeModel { id: "mixtral-8x7b-32768",                            display: "Mixtral 8x7B",      ctx: "32K",  provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions" },
-    // ── Cerebras ────────────────────────────────────────────────────────────
-    FreeModel { id: "llama-3.3-70b",                                 display: "Llama 3.3 70B",     ctx: "128K", provider: "Cerebras",   api_url: "https://api.cerebras.ai/v1/chat/completions" },
-    FreeModel { id: "qwen-3-32b",                                    display: "Qwen3 32B",         ctx: "32K",  provider: "Cerebras",   api_url: "https://api.cerebras.ai/v1/chat/completions" },
+    FreeModel { id: "arcee-ai/trinity-large-preview:free",           display: "Trinity Large",     ctx: "128K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions",     key_env: "OPENROUTER_API_KEY" },
+    FreeModel { id: "stepfun/step-3.5-flash:free",                   display: "Step 3.5 Flash",    ctx: "256K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions",     key_env: "OPENROUTER_API_KEY" },
+    FreeModel { id: "deepseek/deepseek-r1-0528:free",                display: "DeepSeek R1",       ctx: "128K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions",     key_env: "OPENROUTER_API_KEY" },
+    FreeModel { id: "qwen/qwen3-235b-a22b:free",                     display: "Qwen3 235B",        ctx: "40K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions",     key_env: "OPENROUTER_API_KEY" },
+    FreeModel { id: "meta-llama/llama-3.3-70b-instruct:free",        display: "Llama 3.3 70B",     ctx: "128K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions",     key_env: "OPENROUTER_API_KEY" },
+    FreeModel { id: "mistralai/mistral-small-3.1-24b-instruct:free", display: "Mistral Small 3.1", ctx: "96K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions",     key_env: "OPENROUTER_API_KEY" },
+    FreeModel { id: "google/gemma-3-27b-it:free",                    display: "Gemma 3 27B",       ctx: "96K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions",     key_env: "OPENROUTER_API_KEY" },
+    FreeModel { id: "google/gemma-3-4b-it:free",                     display: "Gemma 3 4B",        ctx: "32K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions",     key_env: "OPENROUTER_API_KEY" },
+    FreeModel { id: "llama-3.3-70b-versatile",                       display: "Llama 3.3 70B",     ctx: "128K", provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions",   key_env: "GROQ_API_KEY" },
+    FreeModel { id: "llama-3.1-8b-instant",                          display: "Llama 3.1 8B",      ctx: "128K", provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions",   key_env: "GROQ_API_KEY" },
+    FreeModel { id: "gemma2-9b-it",                                  display: "Gemma 2 9B",        ctx: "8K",   provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions",   key_env: "GROQ_API_KEY" },
+    FreeModel { id: "mixtral-8x7b-32768",                            display: "Mixtral 8x7B",      ctx: "32K",  provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions",   key_env: "GROQ_API_KEY" },
+    FreeModel { id: "llama-3.3-70b",                                 display: "Llama 3.3 70B",     ctx: "128K", provider: "Cerebras",   api_url: "https://api.cerebras.ai/v1/chat/completions",       key_env: "CEREBRAS_API_KEY" },
+    FreeModel { id: "qwen-3-32b",                                    display: "Qwen3 32B",         ctx: "32K",  provider: "Cerebras",   api_url: "https://api.cerebras.ai/v1/chat/completions",       key_env: "CEREBRAS_API_KEY" },
 ];
 
 // ─── Command palette ─────────────────────────────────────────────────────────
@@ -133,9 +143,118 @@ const SKILLS: &[SkillEntry] = &[
 
 // ─── System prompts ──────────────────────────────────────────────────────────
 
-const BUILD_PROMPT: &str = "You are OpenZax, an elite AI coding assistant. Write production-ready code with no shortcuts. Handle all edge cases. Follow SOLID, clean architecture, DRY. Use best practices for the language/framework. Be concise. If complex, break into steps and execute each fully.";
+const BUILD_PROMPT: &str = "You are OpenZax, an elite AI coding assistant with full access to the user's filesystem and shell. You can read/write files, create directories, delete files, move files, and execute shell commands using your tools. When the user asks to work on files or run commands, USE YOUR TOOLS to do it directly — do not just describe how to do it. Write production-ready code with no shortcuts. Handle all edge cases. Follow SOLID, clean architecture, DRY. Use best practices for the language/framework. Be concise. If complex, break into steps and execute each fully.";
 
 const PLAN_PROMPT: &str = "You are OpenZax in Planning Mode. PLAN before code. For every request: 1) Requirements analysis 2) Architecture design 3) Implementation plan 4) Risk matrix. Never write implementation code.";
+
+// ─── Config persistence ───────────────────────────────────────────────────────
+
+fn config_path() -> Option<std::path::PathBuf> {
+    dirs::home_dir().map(|h| h.join(".openzax").join("config.json"))
+}
+
+fn load_openzax_config() -> serde_json::Value {
+    if let Some(path) = config_path() {
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+                return v;
+            }
+        }
+    }
+    serde_json::json!({})
+}
+
+fn save_openzax_config(config: &serde_json::Value) {
+    if let Some(path) = config_path() {
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::write(&path, serde_json::to_string_pretty(config).unwrap_or_default());
+    }
+}
+
+// ─── Auto-update ─────────────────────────────────────────────────────────────
+
+async fn check_and_auto_update() {
+    let current = env!("CARGO_PKG_VERSION");
+
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(4))
+        .user_agent(format!("openzax-cli/{}", current))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    let resp = match client
+        .get("https://api.github.com/repos/zAxCoder/OpenZax/releases/latest")
+        .send()
+        .await
+    {
+        Ok(r) if r.status().is_success() => r,
+        _ => return,
+    };
+
+    let data: serde_json::Value = match resp.json().await {
+        Ok(d) => d,
+        Err(_) => return,
+    };
+
+    let latest = match data["tag_name"].as_str() {
+        Some(t) => t.trim_start_matches('v').to_string(),
+        None => return,
+    };
+
+    if latest == current { return; }
+
+    println!();
+    println!("  Updating OpenZax v{} → v{}...", current, latest);
+
+    match run_installer(&client).await {
+        Ok(true) => {
+            println!("  Update complete! Restarting...");
+            println!();
+            if let Ok(exe) = std::env::current_exe() {
+                let args: Vec<String> = std::env::args().skip(1).collect();
+                let _ = std::process::Command::new(&exe).args(&args).status();
+            }
+            std::process::exit(0);
+        }
+        Ok(false) => {
+            println!("  Update failed. Continuing with current version.");
+        }
+        Err(_) => {}
+    }
+}
+
+async fn run_installer(client: &reqwest::Client) -> anyhow::Result<bool> {
+    #[cfg(windows)]
+    {
+        let url = "https://raw.githubusercontent.com/zAxCoder/OpenZax/master/install.ps1";
+        let content = client.get(url).send().await?.text().await?;
+        let temp = std::env::temp_dir().join("openzax-update.ps1");
+        std::fs::write(&temp, &content)?;
+        let status = std::process::Command::new("powershell")
+            .args(["-ExecutionPolicy", "Bypass", "-File", temp.to_str().unwrap_or("")])
+            .status()?;
+        let _ = std::fs::remove_file(&temp);
+        return Ok(status.success());
+    }
+
+    #[cfg(not(windows))]
+    {
+        let url = "https://raw.githubusercontent.com/zAxCoder/OpenZax/master/install.sh";
+        let content = client.get(url).send().await?.text().await?;
+        let temp = std::env::temp_dir().join("openzax-update.sh");
+        std::fs::write(&temp, &content)?;
+        let status = std::process::Command::new("bash")
+            .arg(temp.to_str().unwrap_or(""))
+            .status()?;
+        let _ = std::fs::remove_file(&temp);
+        return Ok(status.success());
+    }
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -229,14 +348,24 @@ impl App {
     fn ins(&mut self, c: char) { self.input.insert(self.cursor, c); self.cursor += c.len_utf8(); self.reset_cursor(); }
     fn bksp(&mut self) {
         if self.cursor > 0 {
-            let p = self.input[..self.cursor].char_indices().last().map(|(i,_)|i).unwrap_or(0);
+            let p = self.input[..self.cursor].char_indices().last().map(|(i, _)| i).unwrap_or(0);
             self.input.remove(p);
             self.cursor = p;
             self.reset_cursor();
         }
     }
-    fn left(&mut self) { if self.cursor > 0 { self.cursor = self.input[..self.cursor].char_indices().last().map(|(i,_)|i).unwrap_or(0); self.reset_cursor(); } }
-    fn right(&mut self) { if self.cursor < self.input.len() { self.cursor = self.input[self.cursor..].char_indices().nth(1).map(|(i,_)|self.cursor+i).unwrap_or(self.input.len()); self.reset_cursor(); } }
+    fn left(&mut self) {
+        if self.cursor > 0 {
+            self.cursor = self.input[..self.cursor].char_indices().last().map(|(i, _)| i).unwrap_or(0);
+            self.reset_cursor();
+        }
+    }
+    fn right(&mut self) {
+        if self.cursor < self.input.len() {
+            self.cursor = self.input[self.cursor..].char_indices().nth(1).map(|(i, _)| self.cursor + i).unwrap_or(self.input.len());
+            self.reset_cursor();
+        }
+    }
     fn take(&mut self) -> String { let s = std::mem::take(&mut self.input); self.cursor = 0; self.reset_cursor(); s }
     fn sup(&mut self) { self.scroll = self.scroll.saturating_sub(3); }
     fn sdn(&mut self) { self.scroll += 3; }
@@ -263,12 +392,21 @@ impl App {
     }
 }
 
-// Helper to detect Ctrl+letter (works on Windows cmd.exe too)
+// ─── Input height helper ──────────────────────────────────────────────────────
+
+fn input_height(app: &App) -> u16 {
+    if app.input.is_empty() {
+        return 3; // border + 1 line + border
+    }
+    let lines = app.input.split('\n').count();
+    ((lines + 2) as u16).min(8) // max 6 content lines + 2 borders
+}
+
+// Helper to detect Ctrl+letter
 fn is_ctrl(key: &crossterm::event::KeyEvent, ch: char) -> bool {
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char(ch) {
         return true;
     }
-    // Windows cmd.exe sometimes sends raw control codes
     let ctrl_code = (ch as u8).wrapping_sub(b'a').wrapping_add(1);
     if key.code == KeyCode::Char(ctrl_code as char) && ctrl_code < 27 {
         return true;
@@ -296,29 +434,31 @@ fn render(f: &mut Frame, app: &mut App) {
 fn draw_empty(f: &mut Frame, app: &App) {
     let a = f.area();
     let brand_h = BRAND.len() as u16;
-    let content_h = brand_h + 14;
+    let ih = input_height(app);
+    let content_h = brand_h + 2 + ih + 2 + 1 + 2 + 1;
     let top = a.height.saturating_sub(content_h) / 2;
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(top),
-            Constraint::Length(brand_h),
-            Constraint::Length(3),
-            Constraint::Length(5),
-            Constraint::Length(2),
-            Constraint::Length(1),
-            Constraint::Length(2),
-            Constraint::Length(1),
-            Constraint::Min(0),
-            Constraint::Length(1),
+            Constraint::Length(top),      // [0] top padding
+            Constraint::Length(brand_h),  // [1] brand logo
+            Constraint::Length(2),        // [2] gap
+            Constraint::Length(ih),       // [3] input box
+            Constraint::Length(2),        // [4] mode + tier
+            Constraint::Length(1),        // [5] empty
+            Constraint::Length(2),        // [6] shortcuts
+            Constraint::Length(1),        // [7] empty
+            Constraint::Min(0),           // [8] rest
+            Constraint::Length(1),        // [9] bottom tip
         ])
         .split(a);
 
-    // Brand
+    // Brand logo
     let mut bl: Vec<Line> = Vec::new();
     for line in BRAND {
-        bl.push(Line::from(Span::styled(*line, Style::default().fg(W).add_modifier(Modifier::BOLD))));
+        let styled: String = line.replace('\u{2588}', "\u{2588}"); // already has block chars
+        bl.push(Line::from(Span::styled(styled, Style::default().fg(W).add_modifier(Modifier::BOLD))));
     }
     f.render_widget(
         Paragraph::new(bl).alignment(Alignment::Center).style(Style::default().bg(BG)),
@@ -328,7 +468,7 @@ fn draw_empty(f: &mut Frame, app: &App) {
     // Input
     let ic = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(18), Constraint::Percentage(64), Constraint::Percentage(18)])
+        .constraints([Constraint::Percentage(15), Constraint::Percentage(70), Constraint::Percentage(15)])
         .split(chunks[3]);
     draw_input(f, app, ic[1]);
 
@@ -338,7 +478,7 @@ fn draw_empty(f: &mut Frame, app: &App) {
         Span::styled("  ·  ", Style::default().fg(G4)),
         Span::styled(app.tier(), Style::default().fg(G2)),
     ]);
-    f.render_widget(Paragraph::new(ml).alignment(Alignment::Center).style(Style::default().bg(BG)), chunks[5]);
+    f.render_widget(Paragraph::new(ml).alignment(Alignment::Center).style(Style::default().bg(BG)), chunks[4]);
 
     // Shortcuts
     let sc = Line::from(vec![
@@ -351,7 +491,7 @@ fn draw_empty(f: &mut Frame, app: &App) {
         Span::styled("Ctrl+M ", Style::default().fg(G2)),
         Span::styled("model", Style::default().fg(G4)),
     ]);
-    f.render_widget(Paragraph::new(sc).alignment(Alignment::Center).style(Style::default().bg(BG)), chunks[7]);
+    f.render_widget(Paragraph::new(sc).alignment(Alignment::Center).style(Style::default().bg(BG)), chunks[6]);
 
     // Bottom tip
     let tip = Line::from(vec![
@@ -360,7 +500,9 @@ fn draw_empty(f: &mut Frame, app: &App) {
         Span::styled("Ctrl+K ", Style::default().fg(G3)),
         Span::styled("skills   ", Style::default().fg(G4)),
         Span::styled("/help ", Style::default().fg(G3)),
-        Span::styled("commands", Style::default().fg(G4)),
+        Span::styled("commands   ", Style::default().fg(G4)),
+        Span::styled("Shift+Enter ", Style::default().fg(G3)),
+        Span::styled("new line", Style::default().fg(G4)),
     ]);
     f.render_widget(Paragraph::new(tip).alignment(Alignment::Center).style(Style::default().bg(BG)), chunks[9]);
 }
@@ -375,62 +517,72 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
 
     let cursor_char = if app.cursor_visible { "\u{2588}" } else { " " };
 
+    let mut all_lines: Vec<Line> = Vec::new();
+
     if app.input.is_empty() {
-        let line = Line::from(vec![
+        all_lines.push(Line::from(vec![
             Span::styled(" > ", Style::default().fg(G1).add_modifier(Modifier::BOLD)),
             Span::styled(cursor_char, Style::default().fg(W)),
-            Span::styled(" Ask anything...  Shift+Enter for new line", Style::default().fg(G4)),
-        ]);
-        f.render_widget(Paragraph::new(line).style(Style::default().bg(BG_INPUT)), inner);
+            Span::styled(" Ask anything...", Style::default().fg(G4)),
+        ]));
     } else {
         let before = &app.input[..app.cursor];
         let after = if app.cursor < app.input.len() { &app.input[app.cursor..] } else { "" };
 
         let before_parts: Vec<&str> = before.split('\n').collect();
         let after_parts: Vec<&str> = after.split('\n').collect();
+        let cursor_line_idx = before_parts.len() - 1;
+        let total_lines = before_parts.len() + after_parts.len() - 1;
 
-        let mut all_lines: Vec<Line> = Vec::new();
-        for (i, part) in before_parts.iter().enumerate() {
-            let is_last = i == before_parts.len() - 1;
-            let prefix = if i == 0 {
-                Span::styled(" > ", Style::default().fg(G1).add_modifier(Modifier::BOLD))
-            } else {
-                Span::styled("   ", Style::default().fg(G4))
-            };
-            if is_last {
-                let after_first = after_parts.first().copied().unwrap_or("");
+        for i in 0..total_lines {
+            let prefix = if i == 0 { " > " } else { "   " };
+
+            if i < cursor_line_idx {
+                // Lines before the cursor line
                 all_lines.push(Line::from(vec![
-                    prefix,
-                    Span::styled(*part, Style::default().fg(W)),
-                    Span::styled(cursor_char, Style::default().fg(W)),
-                    Span::styled(after_first, Style::default().fg(W)),
+                    Span::styled(prefix, Style::default().fg(G1).add_modifier(Modifier::BOLD)),
+                    Span::styled(before_parts[i].to_string(), Style::default().fg(W)),
+                ]));
+            } else if i == cursor_line_idx {
+                // The cursor line
+                let before_on_line = before_parts[cursor_line_idx];
+                let after_on_line = after_parts.first().copied().unwrap_or("");
+                all_lines.push(Line::from(vec![
+                    Span::styled(prefix, Style::default().fg(G1).add_modifier(Modifier::BOLD)),
+                    Span::styled(before_on_line.to_string(), Style::default().fg(W)),
+                    Span::styled(cursor_char.to_string(), Style::default().fg(W)),
+                    Span::styled(after_on_line.to_string(), Style::default().fg(W)),
                 ]));
             } else {
-                all_lines.push(Line::from(vec![
-                    prefix,
-                    Span::styled(*part, Style::default().fg(W)),
-                ]));
+                // Lines after the cursor
+                let after_idx = i - cursor_line_idx;
+                if after_idx < after_parts.len() {
+                    all_lines.push(Line::from(vec![
+                        Span::styled(prefix, Style::default().fg(G1).add_modifier(Modifier::BOLD)),
+                        Span::styled(after_parts[after_idx].to_string(), Style::default().fg(W)),
+                    ]));
+                }
             }
         }
-        for part in after_parts.iter().skip(1) {
-            all_lines.push(Line::from(vec![
-                Span::styled("   ", Style::default().fg(G4)),
-                Span::styled(*part, Style::default().fg(W)),
-            ]));
-        }
-        f.render_widget(Paragraph::new(Text::from(all_lines)).style(Style::default().bg(BG_INPUT)), inner);
     }
+
+    f.render_widget(
+        Paragraph::new(all_lines).style(Style::default().bg(BG_INPUT)),
+        inner,
+    );
 }
 
 fn draw_chat(f: &mut Frame, app: &mut App) {
     let a = f.area();
+    let ih = input_height(app);
+    let bottom_h = 1 + ih + 1; // info(1) + input + shortcuts(1)
     let cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Min(0), Constraint::Length(32)])
         .split(a);
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(0), Constraint::Length(7)])
+        .constraints([Constraint::Min(0), Constraint::Length(bottom_h)])
         .split(cols[0]);
 
     draw_messages(f, app, rows[0]);
@@ -447,10 +599,14 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
         match msg {
             Msg::User(t) => {
                 lines.push(Line::default());
-                lines.push(Line::from(vec![
-                    Span::styled(" > ", Style::default().fg(W).add_modifier(Modifier::BOLD)),
-                    Span::styled(t.as_str(), Style::default().fg(W).add_modifier(Modifier::BOLD)),
-                ]));
+                // Handle multi-line user messages
+                for (i, part) in t.split('\n').enumerate() {
+                    let prefix = if i == 0 { " > " } else { "   " };
+                    lines.push(Line::from(vec![
+                        Span::styled(prefix, Style::default().fg(W).add_modifier(Modifier::BOLD)),
+                        Span::styled(part.to_string(), Style::default().fg(W).add_modifier(Modifier::BOLD)),
+                    ]));
+                }
                 lines.push(Line::default());
             }
             Msg::Assistant(t) => {
@@ -491,9 +647,10 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_bottom(f: &mut Frame, app: &App, area: Rect) {
+    let ih = input_height(app);
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Length(5), Constraint::Length(1)])
+        .constraints([Constraint::Length(1), Constraint::Length(ih), Constraint::Length(1)])
         .split(area);
 
     let info = Line::from(vec![
@@ -514,6 +671,8 @@ fn draw_bottom(f: &mut Frame, app: &App, area: Rect) {
         Span::styled("cmds  ", Style::default().fg(G4)),
         Span::styled("Ctrl+M ", Style::default().fg(G2)),
         Span::styled("model  ", Style::default().fg(G4)),
+        Span::styled("S+Enter ", Style::default().fg(G2)),
+        Span::styled("newline  ", Style::default().fg(G4)),
         Span::styled("Esc ", Style::default().fg(G2)),
         Span::styled("cancel", Style::default().fg(G4)),
     ]);
@@ -548,7 +707,7 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(Text::from(l)).style(Style::default().bg(BG_PANEL)).wrap(Wrap { trim: false }), inner);
 }
 
-// ─── Overlays ────────────────────────────────────────────────────────────────
+// ─── Overlays (with Clear widget for solid background) ───────────────────────
 
 fn popup_rect(area: Rect, w: u16, h: u16) -> Rect {
     let pw = w.min(area.width.saturating_sub(4));
@@ -557,11 +716,14 @@ fn popup_rect(area: Rect, w: u16, h: u16) -> Rect {
 }
 
 fn draw_commands(f: &mut Frame, app: &mut App) {
-    let popup = popup_rect(f.area(), 50, 20);
+    let popup = popup_rect(f.area(), 52, 20);
     app.ov_rect = popup;
+    // Clear the area first so background content doesn't show through
     f.render_widget(Clear, popup);
     f.render_widget(Block::default().style(Style::default().bg(BG_POPUP)), popup);
-    let blk = Block::default().borders(Borders::ALL).border_style(Style::default().fg(BD))
+    let blk = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(G3))
         .style(Style::default().bg(BG_POPUP))
         .title(Span::styled(" Commands ", Style::default().fg(W).add_modifier(Modifier::BOLD)));
     let inner = blk.inner(popup);
@@ -577,7 +739,7 @@ fn draw_commands(f: &mut Frame, app: &mut App) {
         Line::from(Span::styled(format!(" {}", app.ov_search), Style::default().fg(W)))
     };
     f.render_widget(Paragraph::new(sl).style(Style::default().bg(BG_INPUT)), rows[0]);
-    f.render_widget(Paragraph::new(Line::from(Span::styled("\u{2500}".repeat(rows[1].width as usize), Style::default().fg(G4)))), rows[1]);
+    f.render_widget(Paragraph::new(Line::from(Span::styled("\u{2500}".repeat(rows[1].width as usize), Style::default().fg(G4)))).style(Style::default().bg(BG_POPUP)), rows[1]);
 
     app.ov_item_y = rows[2].y;
     let filtered: Vec<&CmdEntry> = CMD_PALETTE.iter().filter(|e| app.ov_search.is_empty() || e.label.to_lowercase().contains(&app.ov_search.to_lowercase())).collect();
@@ -586,14 +748,14 @@ fn draw_commands(f: &mut Frame, app: &mut App) {
     let mut gi = 0usize;
     for entry in &filtered {
         if entry.cat != last {
-            lines.push(Line::from(Span::styled(format!(" {}", entry.cat), Style::default().fg(G2).add_modifier(Modifier::BOLD))));
+            lines.push(Line::from(Span::styled(format!(" {}", entry.cat), Style::default().fg(G2).add_modifier(Modifier::BOLD)).style(Style::default().bg(BG_POPUP))));
             last = entry.cat;
         }
         let sel = gi == app.ov_idx;
         let (fg, bg) = if sel { (BLK, BG_SEL) } else { (G1, BG_POPUP) };
         lines.push(Line::from(vec![
             Span::styled(format!("  {:<26}", entry.label), Style::default().fg(fg).bg(bg)),
-            Span::styled(format!("{:>12}", entry.shortcut), Style::default().fg(if sel { G3 } else { G4 }).bg(bg)),
+            Span::styled(format!("{:>14}", entry.shortcut), Style::default().fg(if sel { G3 } else { G4 }).bg(bg)),
         ]));
         gi += 1;
     }
@@ -601,11 +763,13 @@ fn draw_commands(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_skills(f: &mut Frame, app: &mut App) {
-    let popup = popup_rect(f.area(), 62, 26);
+    let popup = popup_rect(f.area(), 64, 26);
     app.ov_rect = popup;
     f.render_widget(Clear, popup);
     f.render_widget(Block::default().style(Style::default().bg(BG_POPUP)), popup);
-    let blk = Block::default().borders(Borders::ALL).border_style(Style::default().fg(BD))
+    let blk = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(G3))
         .style(Style::default().bg(BG_POPUP))
         .title(Span::styled(" Skills ", Style::default().fg(W).add_modifier(Modifier::BOLD)));
     let inner = blk.inner(popup);
@@ -621,7 +785,7 @@ fn draw_skills(f: &mut Frame, app: &mut App) {
         Line::from(Span::styled(format!(" {}", app.ov_search), Style::default().fg(W)))
     };
     f.render_widget(Paragraph::new(sl).style(Style::default().bg(BG_INPUT)), rows[0]);
-    f.render_widget(Paragraph::new(Line::from(Span::styled("\u{2500}".repeat(rows[1].width as usize), Style::default().fg(G4)))), rows[1]);
+    f.render_widget(Paragraph::new(Line::from(Span::styled("\u{2500}".repeat(rows[1].width as usize), Style::default().fg(G4)))).style(Style::default().bg(BG_POPUP)), rows[1]);
 
     app.ov_item_y = rows[2].y;
     let nc = 24usize;
@@ -641,11 +805,13 @@ fn draw_skills(f: &mut Frame, app: &mut App) {
 
 fn draw_models(f: &mut Frame, app: &mut App) {
     let h = (FREE_MODELS.len() as u16) + 6;
-    let popup = popup_rect(f.area(), 56, h);
+    let popup = popup_rect(f.area(), 58, h);
     app.ov_rect = popup;
     f.render_widget(Clear, popup);
     f.render_widget(Block::default().style(Style::default().bg(BG_POPUP)), popup);
-    let blk = Block::default().borders(Borders::ALL).border_style(Style::default().fg(BD))
+    let blk = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(G3))
         .style(Style::default().bg(BG_POPUP))
         .title(Span::styled(" Switch Model ", Style::default().fg(W).add_modifier(Modifier::BOLD)));
     let inner = blk.inner(popup);
@@ -656,7 +822,7 @@ fn draw_models(f: &mut Frame, app: &mut App) {
         .split(inner);
 
     f.render_widget(Paragraph::new(Line::from(Span::styled(" Free models (no credit card)", Style::default().fg(G2).add_modifier(Modifier::BOLD)))).style(Style::default().bg(BG_POPUP)), rows[0]);
-    f.render_widget(Paragraph::new(Line::from(Span::styled("\u{2500}".repeat(rows[1].width as usize), Style::default().fg(G4)))), rows[1]);
+    f.render_widget(Paragraph::new(Line::from(Span::styled("\u{2500}".repeat(rows[1].width as usize), Style::default().fg(G4)))).style(Style::default().bg(BG_POPUP)), rows[1]);
 
     app.ov_item_y = rows[2].y;
     let mut lines: Vec<Line> = Vec::new();
@@ -669,7 +835,7 @@ fn draw_models(f: &mut Frame, app: &mut App) {
             Span::styled(mark, Style::default().fg(if cur { W } else { G4 }).bg(bg)),
             Span::styled(format!("{:<20}", m.display), Style::default().fg(fg).bg(bg)),
             Span::styled(format!("{:>6}", m.ctx), Style::default().fg(if sel { G3 } else { G4 }).bg(bg)),
-            Span::styled(format!("  {:<10}", m.provider), Style::default().fg(if sel { G3 } else { G3 }).bg(bg)),
+            Span::styled(format!("  {:<10}", m.provider), Style::default().fg(if sel { G2 } else { G3 }).bg(bg)),
         ]));
     }
     f.render_widget(Paragraph::new(Text::from(lines)).style(Style::default().bg(BG_POPUP)), rows[2]);
@@ -697,7 +863,7 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
 
 fn handle_slash(app: &mut App, cmd: &str) -> bool {
     match cmd.trim() {
-        "/help" | "/h" => { app.push(Msg::System("Tab mode . Ctrl+T tier . Ctrl+P cmds . Ctrl+M model . Ctrl+K skills . Ctrl+N new . /exit quit".into())); true }
+        "/help" | "/h" => { app.push(Msg::System("Tab mode · Ctrl+T tier · Ctrl+P cmds · Ctrl+M model · Ctrl+K skills · Ctrl+N new · Shift+Enter newline · /exit quit".into())); true }
         "/clear" | "/new" => { app.msgs.clear(); app.phase = Phase::Empty; app.session_tokens = 0; app.session_start = Instant::now(); true }
         "/model" => { let info = format!("{} ({})", app.model_name, app.model_provider); app.push(Msg::System(info)); true }
         "/exit" | "/quit" | "/q" => { app.push(Msg::System("__EXIT__".into())); true }
@@ -707,31 +873,24 @@ fn handle_slash(app: &mut App, cmd: &str) -> bool {
 
 // ─── Entry ───────────────────────────────────────────────────────────────────
 
-// Default bundled API key (shared, rate-limited – get your own at openrouter.ai/keys)
-const DEFAULT_API_KEY: &str = "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";
-
-fn load_config_api_key() -> Option<String> {
-    let home = dirs::home_dir()?;
-    let config = home.join(".openzax").join("config.toml");
-    let content = std::fs::read_to_string(config).ok()?;
-    for line in content.lines() {
-        if line.trim_start().starts_with("api_key") {
-            if let Some(val) = line.splitn(2, '=').nth(1) {
-                let key = val.trim().trim_matches('"').trim_matches('\'').to_string();
-                if !key.is_empty() { return Some(key); }
-            }
-        }
+pub async fn run_tui(model_name: String, api_key: Option<String>, db_path: std::path::PathBuf) -> anyhow::Result<()> {
+    // Auto-update check (before entering TUI alternate screen)
+    tokio::select! {
+        _ = check_and_auto_update() => {}
+        _ = tokio::time::sleep(std::time::Duration::from_secs(4)) => {}
     }
-    None
-}
 
-pub async fn run_tui(model_name: String, api_key: Option<String>, db_path: std::path::PathBuf, update_msg: Option<String>) -> anyhow::Result<()> {
+    // Set up Ctrl+C signal handler
+    let _ = ctrlc::set_handler(move || {
+        EXIT_FLAG.store(true, Ordering::SeqCst);
+    });
+
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let res = main_loop(&mut terminal, model_name, api_key, db_path, update_msg).await;
+    let res = main_loop(&mut terminal, model_name, api_key, db_path).await;
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;
@@ -743,26 +902,58 @@ async fn main_loop(
     model_name: String,
     api_key: Option<String>,
     db_path: std::path::PathBuf,
-    update_msg: Option<String>,
 ) -> anyhow::Result<()> {
-    let mut app = App::new(&model_name);
+    // Load persisted config
+    let saved_config = load_openzax_config();
 
-    let key = api_key
+    // Resolve API key: arg > env > config file
+    let key = api_key.clone()
         .or_else(|| std::env::var("OPENZAX_API_KEY").ok())
         .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
-        .or_else(load_config_api_key)
-        .or_else(|| Some(DEFAULT_API_KEY.to_string()));
+        .or_else(|| saved_config["api_key"].as_str().filter(|s| !s.is_empty()).map(|s| s.to_string()));
 
-    if let Some(ref msg) = update_msg {
-        app.pending_sys.push(format!("  Update available: {}", msg));
+    // If API key was provided via --api-key flag, save it
+    if api_key.is_some() {
+        if let Some(ref k) = key {
+            let mut cfg = load_openzax_config();
+            cfg["api_key"] = serde_json::json!(k);
+            save_openzax_config(&cfg);
+        }
+    }
+
+    // Resolve model: use saved model if the passed model is the default
+    let default_model = "deepseek/deepseek-r1-0528:free";
+    let resolved_model = if model_name == default_model {
+        saved_config["model"].as_str()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+            .unwrap_or(model_name.clone())
+    } else {
+        model_name.clone()
+    };
+
+    // Find matching free model entry for correct API URL + provider
+    let (initial_api_url, initial_provider) = FREE_MODELS.iter()
+        .find(|m| m.id == resolved_model)
+        .map(|m| (m.api_url.to_string(), m.provider.to_string()))
+        .unwrap_or_else(|| ("https://openrouter.ai/api/v1/chat/completions".to_string(), "OpenRouter".to_string()));
+
+    let mut app = App::new(&resolved_model);
+    app.model_api = initial_api_url.clone();
+    app.model_provider = initial_provider;
+
+    if key.is_none() {
+        app.pending_sys.push("No API key. Get free keys (no credit card):".into());
+        app.pending_sys.push("  openrouter.ai/keys  ·  console.groq.com  ·  cloud.cerebras.ai".into());
+        app.pending_sys.push("Then: set OPENROUTER_API_KEY=sk-or-... && openzax".into());
     }
 
     if let Some(p) = db_path.parent() { std::fs::create_dir_all(p).ok(); }
     let eb = EventBus::default();
     let cfg = AgentConfig {
-        api_url: "https://openrouter.ai/api/v1/chat/completions".into(),
+        api_url: initial_api_url,
         api_key: key.clone(),
-        model: model_name.clone(),
+        model: resolved_model.clone(),
         system_prompt: Some(BUILD_PROMPT.to_string()),
         ..Default::default()
     };
@@ -787,6 +978,9 @@ async fn main_loop(
     }
 
     loop {
+        // Check Ctrl+C signal flag
+        if EXIT_FLAG.load(Ordering::SeqCst) { break; }
+
         if app.phase == Phase::Stream {
             app.flush();
             if app.done() {
@@ -856,7 +1050,7 @@ async fn main_loop(
                     continue;
                 }
 
-                // Ctrl shortcuts (must be checked BEFORE general char input)
+                // Ctrl shortcuts
                 if is_ctrl(&key, 'p') { app.overlay = Overlay::Commands; app.ov_idx = 0; app.ov_search.clear(); continue; }
                 if is_ctrl(&key, 'm') { app.overlay = Overlay::Models; app.ov_idx = 0; app.ov_search.clear(); continue; }
                 if is_ctrl(&key, 'k') { app.overlay = Overlay::Skills; app.ov_idx = 0; app.ov_search.clear(); continue; }
@@ -867,7 +1061,7 @@ async fn main_loop(
                     continue;
                 }
 
-                // Skip any other Ctrl combos so they don't get typed as chars
+                // Skip other Ctrl combos
                 if key.modifiers.contains(KeyModifiers::CONTROL) { continue; }
 
                 if key.code == KeyCode::Tab && app.phase != Phase::Stream {
@@ -882,14 +1076,14 @@ async fn main_loop(
                     continue;
                 }
 
-                // Shift+Enter inserts a newline in the input
-                if key.code == KeyCode::Enter && key.modifiers.contains(KeyModifiers::SHIFT) {
-                    app.ins('\n');
-                    continue;
-                }
-
                 match key.code {
                     KeyCode::Enter => {
+                        // Shift+Enter inserts a newline
+                        if key.modifiers.contains(KeyModifiers::SHIFT) {
+                            app.ins('\n');
+                            continue;
+                        }
+                        // Regular Enter submits
                         let text = app.take();
                         if text.trim().is_empty() { continue; }
                         if text.trim().starts_with('/') {
@@ -963,7 +1157,7 @@ fn execute_overlay(app: &mut App, agent: &Arc<Agent>) {
                         app.push(Msg::System(format!("Mode: {}", app.mode_label())));
                     }
                     "Intelligence tier" => { app.tier_idx = (app.tier_idx + 1) % TIERS.len(); app.push(Msg::System(format!("Tier: {}", TIERS[app.tier_idx]))); }
-                    "Help" => { app.push(Msg::System("Tab mode . Ctrl+T tier . Ctrl+P cmds . Ctrl+M model".into())); }
+                    "Help" => { app.push(Msg::System("Tab mode · Ctrl+T tier · Ctrl+P cmds · Ctrl+M model · Shift+Enter newline".into())); }
                     _ => {}
                 }
             }
@@ -974,24 +1168,34 @@ fn execute_overlay(app: &mut App, agent: &Arc<Agent>) {
                 app.model_short = m.display.to_string();
                 app.model_provider = m.provider.to_string();
                 app.model_api = m.api_url.to_string();
+
+                // Update agent with correct model + API URL
                 agent.set_model(m.id.to_string());
                 agent.set_api_url(m.api_url.to_string());
-                // Use provider-specific API key if available
-                let provider_key = match m.provider {
-                    "Groq"     => std::env::var("GROQ_API_KEY").ok(),
-                    "Cerebras" => std::env::var("CEREBRAS_API_KEY").ok(),
-                    _          => std::env::var("OPENROUTER_API_KEY").ok()
-                                    .or_else(|| std::env::var("OPENZAX_API_KEY").ok())
-                                    .or_else(load_config_api_key)
-                                    .or_else(|| Some(DEFAULT_API_KEY.to_string())),
-                };
-                if let Some(k) = provider_key { agent.set_api_key(k); }
+
+                // Try provider-specific API key from env
+                let provider_key = std::env::var(m.key_env).ok()
+                    .or_else(|| std::env::var("OPENZAX_API_KEY").ok())
+                    .or_else(|| {
+                        load_openzax_config()["api_key"].as_str()
+                            .filter(|s| !s.is_empty())
+                            .map(|s| s.to_string())
+                    });
+                if let Some(k) = provider_key {
+                    agent.set_api_key(k);
+                }
+
                 app.push(Msg::System(format!("Model: {} ({})", m.display, m.provider)));
+
+                // Persist selected model
+                let mut config = load_openzax_config();
+                config["model"] = serde_json::json!(m.id);
+                save_openzax_config(&config);
             }
         }
         Overlay::Skills => {
             let filtered: Vec<&SkillEntry> = SKILLS.iter().filter(|s| app.ov_search.is_empty() || s.name.contains(&app.ov_search) || s.desc.to_lowercase().contains(&app.ov_search.to_lowercase())).collect();
-            if let Some(s) = filtered.get(app.ov_idx) { app.push(Msg::System(format!("Skill: {}", s.name))); }
+            if let Some(s) = filtered.get(app.ov_idx) { app.push(Msg::System(format!("Skill activated: {}", s.name))); }
         }
         Overlay::None => {}
     }

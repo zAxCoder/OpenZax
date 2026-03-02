@@ -273,7 +273,7 @@ async fn main() -> anyhow::Result<()> {
                 .or_else(|| std::env::var("OPENZAX_API_KEY").ok())
                 .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
                 .or_else(load_api_key_from_config);
-            tui::run_tui(model, resolved_key, db_path, None).await?;
+            tui::run_tui(model, resolved_key, db_path).await?;
         }
         Some(Commands::Init { name, language }) => {
             ui::print_banner();
@@ -344,12 +344,7 @@ async fn main() -> anyhow::Result<()> {
             let db_path = dirs::home_dir()
                 .map(|h| h.join(".openzax").join("openzax.db"))
                 .unwrap_or_else(|| std::path::PathBuf::from(".openzax/openzax.db"));
-            // Background update check (2s timeout)
-            let update_msg = tokio::time::timeout(
-                std::time::Duration::from_secs(2),
-                check_for_update(),
-            ).await.ok().flatten();
-            tui::run_tui(model, api_key, db_path, update_msg).await?;
+            tui::run_tui(model, api_key, db_path).await?;
         }
     }
 
