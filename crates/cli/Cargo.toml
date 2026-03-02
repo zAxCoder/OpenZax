@@ -45,6 +45,7 @@ rand = "0.8"
 base64 = "0.22"
 zip = "2.1"
 ctrlc = "3.4"
+arboard = "3"
 
 [features]
 default = []

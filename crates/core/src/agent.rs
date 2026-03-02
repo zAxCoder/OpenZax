@@ -529,7 +529,7 @@ impl Agent {
                 };
                 self.event_bus.publish(Event::AgentTokenStream {
                     agent_id: self.id,
-                    token: format!("\n\u{1F527} **{}** {}\n", tool_name, preview),
+                    token: format!("\n[tool] {} {}\n", tool_name, preview),
                     finish_reason: None,
                     timestamp: Utc::now(),
                 })?;

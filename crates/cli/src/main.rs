@@ -242,6 +242,7 @@ async fn check_for_update() -> Option<String> {
         .send()
         .await
         .ok()?;
+
     if !resp.status().is_success() { return None; }
     let json: serde_json::Value = resp.json().await.ok()?;
     let tag = json["tag_name"].as_str()?;
@@ -257,6 +258,10 @@ async fn check_for_update() -> Option<String> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Enable ANSI escape codes on Windows (CMD / old consoles)
+    #[cfg(windows)]
+    let _ = colored::control::set_virtual_terminal(true);
+
     let cli = Cli::parse();
 
     let log_level = if cli.verbose { "debug" } else { "info" };
@@ -734,10 +739,10 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
 
     let url = match &version {
         Some(v) => format!(
-            "https://api.github.com/repos/openzax/openzax/releases/tags/v{}",
+            "https://api.github.com/repos/zAxCoder/OpenZax/releases/tags/v{}",
             v
         ),
-        None => "https://api.github.com/repos/openzax/openzax/releases/latest".to_string(),
+        None => "https://api.github.com/repos/zAxCoder/OpenZax/releases/latest".to_string(),
     };
 
     match client.get(&url).send().await {

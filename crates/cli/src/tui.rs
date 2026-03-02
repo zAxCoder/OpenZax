@@ -30,6 +30,10 @@ use openzax_core::{
 use uuid::Uuid;
 use chrono::Utc;
 
+fn clipboard_paste() -> Option<String> {
+    arboard::Clipboard::new().ok()?.get_text().ok()
+}
+
 // ─── Ctrl+C global exit flag ─────────────────────────────────────────────────
 
 static EXIT_FLAG: AtomicBool = AtomicBool::new(false);
@@ -442,11 +446,8 @@ impl App {
 // ─── Input height helper ──────────────────────────────────────────────────────
 
 fn input_height(app: &App) -> u16 {
-    if app.input.is_empty() {
-        return 3; // border + 1 line + border
-    }
-    let lines = app.input.split('\n').count();
-    ((lines + 2) as u16).min(8) // max 6 content lines + 2 borders
+    let lines = app.input.split('\n').count().max(3);
+    ((lines + 2) as u16).min(10)
 }
 
 // Helper to detect Ctrl+letter
@@ -516,10 +517,10 @@ fn draw_empty(f: &mut Frame, app: &App) {
         chunks[1],
     );
 
-    // Input (wider)
+    // Input box
     let ic = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(10), Constraint::Percentage(80), Constraint::Percentage(10)])
+        .constraints([Constraint::Percentage(20), Constraint::Percentage(60), Constraint::Percentage(20)])
         .split(chunks[3]);
     draw_input(f, app, ic[1]);
 
@@ -825,13 +826,21 @@ fn draw_connect(f: &mut Frame, app: &mut App) {
         let pname = API_PROVIDERS.get(app.ov_idx).map(|p| p.name).unwrap_or("?");
         lines.push(Line::from(Span::styled(format!(" Key for {}:", pname), Style::default().fg(ACCENT_BLUE))));
         let cursor_ch = if app.cursor_visible { "\u{2588}" } else { " " };
-        let typed_len = app.connect_input.len() + 2;
-        let pad = iw.saturating_sub(typed_len);
+        let placeholder = if app.connect_input.is_empty() {
+            Span::styled("Paste key here (Ctrl+V)...", Style::default().fg(G3).bg(BG_INPUT))
+        } else {
+            let masked: String = if app.connect_input.len() > 12 {
+                format!("{}...{}", &app.connect_input[..5], &app.connect_input[app.connect_input.len()-4..])
+            } else {
+                app.connect_input.clone()
+            };
+            Span::styled(masked, Style::default().fg(ACCENT_BLUE).bg(BG_INPUT))
+        };
         lines.push(Line::from(vec![
             Span::styled(" ", Style::default().bg(BG_INPUT)),
-            Span::styled(app.connect_input.as_str(), Style::default().fg(W).bg(BG_INPUT)),
-            Span::styled(cursor_ch, Style::default().fg(W).bg(BG_INPUT)),
-            Span::styled(" ".repeat(pad), Style::default().bg(BG_INPUT)),
+            placeholder,
+            Span::styled(cursor_ch, Style::default().fg(ACCENT_GOLD).bg(BG_INPUT)),
+            Span::styled(" ".repeat(iw.saturating_sub(14)), Style::default().bg(BG_INPUT)),
         ]));
         lines.push(Line::default());
     }
@@ -841,6 +850,8 @@ fn draw_connect(f: &mut Frame, app: &mut App) {
         lines.push(Line::from(vec![
             Span::styled(" Enter ", Style::default().fg(G2)),
             Span::styled("save  ", Style::default().fg(G4)),
+            Span::styled("Ctrl+V ", Style::default().fg(ACCENT_GOLD)),
+            Span::styled("paste  ", Style::default().fg(G4)),
             Span::styled("Esc ", Style::default().fg(G2)),
             Span::styled("cancel", Style::default().fg(G4)),
         ]));
@@ -1193,18 +1204,28 @@ async fn main_loop(
                                     if !trimmed.is_empty() {
                                         if let Some(p) = API_PROVIDERS.get(app.ov_idx) {
                                             let mut cfg = load_openzax_config();
-                                            cfg[p.config_key] = serde_json::json!(trimmed);
+                                            cfg[p.config_key] = serde_json::json!(&trimmed);
+                                            // Also save as generic fallback key if OpenRouter
+                                            if p.config_key == "openrouter_key" {
+                                                cfg["api_key"] = serde_json::json!(&trimmed);
+                                            }
                                             save_openzax_config(&cfg);
+                                            // Update active agent key if provider matches
                                             if app.model_provider == p.name {
                                                 agent.set_api_key(trimmed.clone());
                                             }
-                                            app.push(Msg::System(format!("API key saved for {}", p.name)));
+                                            app.push(Msg::System(format!("API key saved for {} - ready to use", p.name)));
                                         }
                                     }
                                     app.connect_editing = false;
                                     app.connect_input.clear();
                                 }
                                 KeyCode::Backspace => { app.connect_input.pop(); }
+                                KeyCode::Char('v') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                                    if let Some(text) = clipboard_paste() {
+                                        app.connect_input.push_str(text.trim());
+                                    }
+                                }
                                 KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => { app.connect_input.push(c); }
                                 _ => {}
                             }
@@ -1247,6 +1268,14 @@ async fn main_loop(
                 if is_ctrl(&key, 't') {
                     app.tier_idx = (app.tier_idx + 1) % TIERS.len();
                     if app.phase != Phase::Empty { app.push(Msg::System(format!("Tier: {}", TIERS[app.tier_idx]))); }
+                    continue;
+                }
+
+                // Ctrl+V: paste from clipboard into input
+                if is_ctrl(&key, 'v') {
+                    if let Some(text) = clipboard_paste() {
+                        for c in text.chars() { if c != '\r' { app.ins(c); } }
+                    }
                     continue;
                 }
 
@@ -1306,7 +1335,7 @@ async fn main_loop(
                     KeyCode::Left => app.left(),
                     KeyCode::Right => app.right(),
                     KeyCode::Up => app.sup(),
-                    KeyCode::Down => app.sdn(),
+                    KeyCode::Down => app.ins('\n'),
                     KeyCode::Home => { app.cursor = 0; app.reset_cursor(); }
                     KeyCode::End => { app.cursor = app.input.len(); app.reset_cursor(); }
                     _ => {}
