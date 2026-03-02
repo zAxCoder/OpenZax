@@ -103,6 +103,44 @@ const FREE_MODELS: &[FreeModel] = &[
     FreeModel { id: "qwen-3-32b",                                    display: "Qwen3 32B",         ctx: "32K",  provider: "Cerebras",   api_url: "https://api.cerebras.ai/v1/chat/completions",       key_env: "CEREBRAS_API_KEY" },
 ];
 
+// ─── API Providers ───────────────────────────────────────────────────────────
+
+struct ApiProvider {
+    name: &'static str,
+    env_var: &'static str,
+    config_key: &'static str,
+    hint: &'static str,
+}
+
+const API_PROVIDERS: &[ApiProvider] = &[
+    ApiProvider { name: "OpenRouter", env_var: "OPENROUTER_API_KEY", config_key: "openrouter_key", hint: "openrouter.ai/keys" },
+    ApiProvider { name: "Groq",       env_var: "GROQ_API_KEY",       config_key: "groq_key",       hint: "console.groq.com" },
+    ApiProvider { name: "Cerebras",   env_var: "CEREBRAS_API_KEY",   config_key: "cerebras_key",   hint: "cloud.cerebras.ai" },
+];
+
+fn resolve_provider_key(key_env: &str) -> Option<String> {
+    std::env::var(key_env).ok()
+        .or_else(|| std::env::var("OPENZAX_API_KEY").ok())
+        .or_else(|| {
+            let cfg = load_openzax_config();
+            let config_key = match key_env {
+                "OPENROUTER_API_KEY" => "openrouter_key",
+                "GROQ_API_KEY" => "groq_key",
+                "CEREBRAS_API_KEY" => "cerebras_key",
+                _ => return None,
+            };
+            cfg[config_key].as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .or_else(|| cfg["api_key"].as_str().filter(|s| !s.is_empty()).map(|s| s.to_string()))
+        })
+}
+
+fn mask_key(key: &str) -> String {
+    if key.len() <= 10 { return "****".to_string(); }
+    format!("{}...{}", &key[..5], &key[key.len()-4..])
+}
+
 // ─── Command palette ─────────────────────────────────────────────────────────
 
 struct CmdEntry { label: &'static str, shortcut: &'static str, cat: &'static str }
@@ -110,6 +148,7 @@ struct CmdEntry { label: &'static str, shortcut: &'static str, cat: &'static str
 const CMD_PALETTE: &[CmdEntry] = &[
     CmdEntry { label: "Switch model",     shortcut: "Ctrl+M", cat: "Model" },
     CmdEntry { label: "Intelligence tier", shortcut: "Ctrl+T", cat: "Model" },
+    CmdEntry { label: "API keys",         shortcut: "/connect", cat: "Model" },
     CmdEntry { label: "Switch mode",      shortcut: "Tab",    cat: "Session" },
     CmdEntry { label: "New session",      shortcut: "Ctrl+N", cat: "Session" },
     CmdEntry { label: "Skills",           shortcut: "Ctrl+K", cat: "Tools" },
@@ -270,7 +309,7 @@ pub enum Msg {
 }
 
 #[derive(PartialEq, Copy, Clone)]
-enum Overlay { None, Commands, Skills, Models }
+enum Overlay { None, Commands, Skills, Models, Connect }
 
 #[derive(PartialEq, Copy, Clone)]
 enum Mode { Build, Plan }
@@ -302,6 +341,8 @@ pub struct App {
     ov_search: String,
     ov_rect: Rect,
     ov_item_y: u16,
+    connect_input: String,
+    connect_editing: bool,
     stream_buf: Arc<Mutex<String>>,
     done_flag: Arc<Mutex<bool>>,
 }
@@ -331,6 +372,8 @@ impl App {
             ov_search: String::new(),
             ov_rect: Rect::default(),
             ov_item_y: 0,
+            connect_input: String::new(),
+            connect_editing: false,
             stream_buf: Arc::new(Mutex::new(String::new())),
             done_flag: Arc::new(Mutex::new(false)),
         }
@@ -390,6 +433,7 @@ impl App {
             Overlay::Commands => CMD_PALETTE.iter().filter(|e| self.ov_search.is_empty() || e.label.to_lowercase().contains(&self.ov_search.to_lowercase())).count(),
             Overlay::Skills => SKILLS.iter().filter(|s| self.ov_search.is_empty() || s.name.contains(&self.ov_search) || s.desc.to_lowercase().contains(&self.ov_search.to_lowercase())).count(),
             Overlay::Models => FREE_MODELS.len(),
+            Overlay::Connect => API_PROVIDERS.len(),
             Overlay::None => 0,
         }
     }
@@ -430,6 +474,7 @@ fn render(f: &mut Frame, app: &mut App) {
         Overlay::Commands => draw_commands(f, app),
         Overlay::Skills => draw_skills(f, app),
         Overlay::Models => draw_models(f, app),
+        Overlay::Connect => draw_connect(f, app),
         Overlay::None => {}
     }
 }
@@ -737,6 +782,81 @@ fn popup_rect(area: Rect, w: u16, h: u16) -> Rect {
     Rect::new((area.width.saturating_sub(pw)) / 2, (area.height.saturating_sub(ph)) / 2, pw, ph)
 }
 
+fn draw_connect(f: &mut Frame, app: &mut App) {
+    let edit_extra = if app.connect_editing { 4 } else { 0 };
+    let h = (API_PROVIDERS.len() as u16) + 7 + edit_extra;
+    let popup = popup_rect(f.area(), 56, h);
+    app.ov_rect = popup;
+    f.render_widget(Clear, popup);
+    let blk = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(G3))
+        .style(Style::default().bg(BG_POPUP))
+        .title(Span::styled(" API Keys ", Style::default().fg(W).add_modifier(Modifier::BOLD)));
+    let inner = blk.inner(popup);
+    f.render_widget(blk, popup);
+
+    let cfg = load_openzax_config();
+    let iw = inner.width as usize;
+    let mut lines: Vec<Line> = Vec::new();
+
+    lines.push(Line::from(Span::styled(" Manage your provider API keys", Style::default().fg(G2))));
+    lines.push(Line::from(Span::styled("\u{2500}".repeat(iw), Style::default().fg(G4))));
+
+    for (i, p) in API_PROVIDERS.iter().enumerate() {
+        let sel = i == app.ov_idx;
+        let (fg, bg_c) = if sel { (BLK, BG_SEL) } else { (G1, BG_POPUP) };
+        let key_val = std::env::var(p.env_var).ok()
+            .or_else(|| cfg[p.config_key].as_str().filter(|s| !s.is_empty()).map(|s| s.to_string()));
+        let (status, sfg) = match &key_val {
+            Some(k) => (format!("{}  [set]", mask_key(k)), if sel { BLK } else { ACCENT_BLUE }),
+            None => (format!("not set  {}", p.hint), if sel { G3 } else { G4 }),
+        };
+        lines.push(Line::from(vec![
+            Span::styled(if sel { " > " } else { "   " }, Style::default().fg(fg).bg(bg_c)),
+            Span::styled(format!("{:<14}", p.name), Style::default().fg(fg).bg(bg_c)),
+            Span::styled(status, Style::default().fg(sfg).bg(bg_c)),
+        ]));
+    }
+
+    if app.connect_editing {
+        lines.push(Line::from(Span::styled("\u{2500}".repeat(iw), Style::default().fg(G4))));
+        let pname = API_PROVIDERS.get(app.ov_idx).map(|p| p.name).unwrap_or("?");
+        lines.push(Line::from(Span::styled(format!(" Key for {}:", pname), Style::default().fg(ACCENT_BLUE))));
+        let cursor_ch = if app.cursor_visible { "\u{2588}" } else { " " };
+        let typed_len = app.connect_input.len() + 2;
+        let pad = iw.saturating_sub(typed_len);
+        lines.push(Line::from(vec![
+            Span::styled(" ", Style::default().bg(BG_INPUT)),
+            Span::styled(app.connect_input.as_str(), Style::default().fg(W).bg(BG_INPUT)),
+            Span::styled(cursor_ch, Style::default().fg(W).bg(BG_INPUT)),
+            Span::styled(" ".repeat(pad), Style::default().bg(BG_INPUT)),
+        ]));
+        lines.push(Line::default());
+    }
+
+    lines.push(Line::from(Span::styled("\u{2500}".repeat(iw), Style::default().fg(G4))));
+    if app.connect_editing {
+        lines.push(Line::from(vec![
+            Span::styled(" Enter ", Style::default().fg(G2)),
+            Span::styled("save  ", Style::default().fg(G4)),
+            Span::styled("Esc ", Style::default().fg(G2)),
+            Span::styled("cancel", Style::default().fg(G4)),
+        ]));
+    } else {
+        lines.push(Line::from(vec![
+            Span::styled(" Enter ", Style::default().fg(G2)),
+            Span::styled("edit  ", Style::default().fg(G4)),
+            Span::styled("Del ", Style::default().fg(G2)),
+            Span::styled("remove  ", Style::default().fg(G4)),
+            Span::styled("Esc ", Style::default().fg(G2)),
+            Span::styled("close", Style::default().fg(G4)),
+        ]));
+    }
+    f.render_widget(Paragraph::new(Text::from(lines)).style(Style::default().bg(BG_POPUP)), inner);
+}
+
 fn draw_commands(f: &mut Frame, app: &mut App) {
     let popup = popup_rect(f.area(), 52, 20);
     app.ov_rect = popup;
@@ -889,6 +1009,7 @@ fn handle_slash(app: &mut App, cmd: &str) -> bool {
         "/clear" | "/new" => { app.msgs.clear(); app.phase = Phase::Empty; app.session_tokens = 0; app.session_start = Instant::now(); true }
         "/model" => { let info = format!("{} ({})", app.model_name, app.model_provider); app.push(Msg::System(info)); true }
         "/exit" | "/quit" | "/q" => { app.push(Msg::System("__EXIT__".into())); true }
+        "/connect" | "/keys" | "/api" => { app.overlay = Overlay::Connect; app.ov_idx = 0; app.connect_editing = false; app.connect_input.clear(); true }
         _ => false,
     }
 }
@@ -954,11 +1075,14 @@ async fn main_loop(
         model_name.clone()
     };
 
-    // Find matching free model entry for correct API URL + provider
-    let (initial_api_url, initial_provider) = FREE_MODELS.iter()
-        .find(|m| m.id == resolved_model)
-        .map(|m| (m.api_url.to_string(), m.provider.to_string()))
-        .unwrap_or_else(|| ("https://openrouter.ai/api/v1/chat/completions".to_string(), "OpenRouter".to_string()));
+    // Find matching free model entry for correct API URL + provider + key env
+    let initial_fm = FREE_MODELS.iter().find(|m| m.id == resolved_model);
+    let (initial_api_url, initial_provider, initial_key_env) = initial_fm
+        .map(|m| (m.api_url.to_string(), m.provider.to_string(), m.key_env.to_string()))
+        .unwrap_or_else(|| ("https://openrouter.ai/api/v1/chat/completions".to_string(), "OpenRouter".to_string(), "OPENROUTER_API_KEY".to_string()));
+
+    // Re-resolve key using per-provider config if initial resolution failed
+    let key = key.or_else(|| resolve_provider_key(&initial_key_env));
 
     let mut app = App::new(&resolved_model);
     app.model_api = initial_api_url.clone();
@@ -967,7 +1091,7 @@ async fn main_loop(
     if key.is_none() {
         app.pending_sys.push("No API key. Get free keys (no credit card):".into());
         app.pending_sys.push("  openrouter.ai/keys  ·  console.groq.com  ·  cloud.cerebras.ai".into());
-        app.pending_sys.push("Then: set OPENROUTER_API_KEY=sk-or-... && openzax".into());
+        app.pending_sys.push("Use /connect to add your key, or set OPENROUTER_API_KEY env var".into());
     }
 
     if let Some(p) = db_path.parent() { std::fs::create_dir_all(p).ok(); }
@@ -1060,6 +1184,49 @@ async fn main_loop(
 
                 // Overlay input
                 if app.overlay != Overlay::None {
+                    if app.overlay == Overlay::Connect {
+                        if app.connect_editing {
+                            match key.code {
+                                KeyCode::Esc => { app.connect_editing = false; app.connect_input.clear(); }
+                                KeyCode::Enter => {
+                                    let trimmed = app.connect_input.trim().to_string();
+                                    if !trimmed.is_empty() {
+                                        if let Some(p) = API_PROVIDERS.get(app.ov_idx) {
+                                            let mut cfg = load_openzax_config();
+                                            cfg[p.config_key] = serde_json::json!(trimmed);
+                                            save_openzax_config(&cfg);
+                                            if app.model_provider == p.name {
+                                                agent.set_api_key(trimmed.clone());
+                                            }
+                                            app.push(Msg::System(format!("API key saved for {}", p.name)));
+                                        }
+                                    }
+                                    app.connect_editing = false;
+                                    app.connect_input.clear();
+                                }
+                                KeyCode::Backspace => { app.connect_input.pop(); }
+                                KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => { app.connect_input.push(c); }
+                                _ => {}
+                            }
+                        } else {
+                            match key.code {
+                                KeyCode::Esc => { app.overlay = Overlay::None; }
+                                KeyCode::Up => { if app.ov_idx > 0 { app.ov_idx -= 1; } }
+                                KeyCode::Down => { if app.ov_idx + 1 < API_PROVIDERS.len() { app.ov_idx += 1; } }
+                                KeyCode::Enter => { app.connect_editing = true; app.connect_input.clear(); }
+                                KeyCode::Delete => {
+                                    if let Some(p) = API_PROVIDERS.get(app.ov_idx) {
+                                        let mut cfg = load_openzax_config();
+                                        if let Some(obj) = cfg.as_object_mut() { obj.remove(p.config_key); }
+                                        save_openzax_config(&cfg);
+                                        app.push(Msg::System(format!("API key removed for {}", p.name)));
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        continue;
+                    }
                     match key.code {
                         KeyCode::Esc => { app.overlay = Overlay::None; app.ov_search.clear(); }
                         KeyCode::Up => { if app.ov_idx > 0 { app.ov_idx -= 1; } }
@@ -1173,6 +1340,7 @@ fn execute_overlay(app: &mut App, agent: &Arc<Agent>) {
                     "New session" => { app.msgs.clear(); app.phase = Phase::Empty; app.session_tokens = 0; app.session_start = Instant::now(); }
                     "Switch model" => { app.overlay = Overlay::Models; app.ov_idx = 0; app.ov_search.clear(); return; }
                     "Skills" => { app.overlay = Overlay::Skills; app.ov_idx = 0; app.ov_search.clear(); return; }
+                    "API keys" => { app.overlay = Overlay::Connect; app.ov_idx = 0; app.connect_editing = false; app.connect_input.clear(); return; }
                     "Switch mode" => {
                         app.mode = match app.mode { Mode::Build => Mode::Plan, Mode::Plan => Mode::Build };
                         agent.set_system_prompt(match app.mode { Mode::Build => BUILD_PROMPT, Mode::Plan => PLAN_PROMPT }.to_string());
@@ -1195,19 +1363,13 @@ fn execute_overlay(app: &mut App, agent: &Arc<Agent>) {
                 agent.set_model(m.id.to_string());
                 agent.set_api_url(m.api_url.to_string());
 
-                // Try provider-specific API key from env
-                let provider_key = std::env::var(m.key_env).ok()
-                    .or_else(|| std::env::var("OPENZAX_API_KEY").ok())
-                    .or_else(|| {
-                        load_openzax_config()["api_key"].as_str()
-                            .filter(|s| !s.is_empty())
-                            .map(|s| s.to_string())
-                    });
+                let provider_key = resolve_provider_key(m.key_env);
                 if let Some(k) = provider_key {
                     agent.set_api_key(k);
+                    app.push(Msg::System(format!("Model: {} ({})", m.display, m.provider)));
+                } else {
+                    app.push(Msg::System(format!("Model: {} ({}) -- no API key, use /connect", m.display, m.provider)));
                 }
-
-                app.push(Msg::System(format!("Model: {} ({})", m.display, m.provider)));
 
                 // Persist selected model
                 let mut config = load_openzax_config();
@@ -1219,6 +1381,7 @@ fn execute_overlay(app: &mut App, agent: &Arc<Agent>) {
             let filtered: Vec<&SkillEntry> = SKILLS.iter().filter(|s| app.ov_search.is_empty() || s.name.contains(&app.ov_search) || s.desc.to_lowercase().contains(&app.ov_search.to_lowercase())).collect();
             if let Some(s) = filtered.get(app.ov_idx) { app.push(Msg::System(format!("Skill activated: {}", s.name))); }
         }
+        Overlay::Connect => {}
         Overlay::None => {}
     }
     app.overlay = Overlay::None;
