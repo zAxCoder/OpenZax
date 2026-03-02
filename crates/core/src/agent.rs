@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::Utc;
 use futures_util::StreamExt;
+use std::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
@@ -12,23 +13,25 @@ pub struct AgentConfig {
     pub model: String,
     pub temperature: f32,
     pub max_tokens: usize,
+    pub system_prompt: Option<String>,
 }
 
 impl Default for AgentConfig {
     fn default() -> Self {
         Self {
-            api_url: "https://api.openai.com/v1/chat/completions".to_string(),
+            api_url: "https://openrouter.ai/api/v1/chat/completions".to_string(),
             api_key: None,
-            model: "gpt-4".to_string(),
+            model: "deepseek/deepseek-r1-0528:free".to_string(),
             temperature: 0.7,
-            max_tokens: 2000,
+            max_tokens: 4096,
+            system_prompt: None,
         }
     }
 }
 
 pub struct Agent {
     id: Uuid,
-    config: AgentConfig,
+    config: Mutex<AgentConfig>,
     event_bus: EventBus,
     client: reqwest::Client,
 }
@@ -37,7 +40,7 @@ impl Agent {
     pub fn new(config: AgentConfig, event_bus: EventBus) -> Self {
         Self {
             id: Uuid::new_v4(),
-            config,
+            config: Mutex::new(config),
             event_bus,
             client: reqwest::Client::new(),
         }
@@ -45,6 +48,18 @@ impl Agent {
 
     pub fn id(&self) -> Uuid {
         self.id
+    }
+
+    pub fn set_system_prompt(&self, prompt: String) {
+        self.config.lock().unwrap().system_prompt = Some(prompt);
+    }
+
+    pub fn set_model(&self, model: String) {
+        self.config.lock().unwrap().model = model;
+    }
+
+    pub fn model_name(&self) -> String {
+        self.config.lock().unwrap().model.clone()
     }
 
     pub async fn process(&self, prompt: &str) -> Result<String> {
@@ -65,26 +80,43 @@ impl Agent {
         Ok(response)
     }
 
+    fn build_messages(&self, prompt: &str) -> Vec<serde_json::Value> {
+        let cfg = self.config.lock().unwrap();
+        let mut messages = Vec::new();
+        if let Some(ref sys) = cfg.system_prompt {
+            messages.push(serde_json::json!({"role": "system", "content": sys}));
+        }
+        messages.push(serde_json::json!({"role": "user", "content": prompt}));
+        messages
+    }
+
     async fn call_llm(&self, prompt: &str) -> Result<String> {
-        let api_key = self.config.api_key.as_ref()
-            .ok_or_else(|| Error::Agent("API key not configured".to_string()))?;
+        let (api_url, api_key, model, temp, max_tok) = {
+            let cfg = self.config.lock().unwrap();
+            (
+                cfg.api_url.clone(),
+                cfg.api_key.clone().unwrap_or_default(),
+                cfg.model.clone(),
+                cfg.temperature,
+                cfg.max_tokens,
+            )
+        };
+
+        let messages = self.build_messages(prompt);
 
         let request_body = serde_json::json!({
-            "model": self.config.model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
+            "model": model,
+            "messages": messages,
+            "temperature": temp,
+            "max_tokens": max_tok,
         });
 
         let response = self.client
-            .post(&self.config.api_url)
+            .post(&api_url)
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
+            .header("HTTP-Referer", "https://openzax.dev")
+            .header("X-Title", "OpenZax")
             .json(&request_body)
             .send()
             .await?;
@@ -111,26 +143,38 @@ impl Agent {
             timestamp: Utc::now(),
         })?;
 
-        let api_key = self.config.api_key.as_ref()
-            .ok_or_else(|| Error::Agent("API key not configured".to_string()))?;
+        let (api_url, api_key, model, temp, max_tok) = {
+            let cfg = self.config.lock().unwrap();
+            (
+                cfg.api_url.clone(),
+                cfg.api_key.clone(),
+                cfg.model.clone(),
+                cfg.temperature,
+                cfg.max_tokens,
+            )
+        };
+
+        let api_key = api_key.filter(|k| !k.is_empty())
+            .ok_or_else(|| Error::Agent(
+                "No API key set. Get a FREE key at https://openrouter.ai/keys then set OPENROUTER_API_KEY".to_string()
+            ))?;
+
+        let messages = self.build_messages(prompt);
 
         let request_body = serde_json::json!({
-            "model": self.config.model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
+            "model": model,
+            "messages": messages,
+            "temperature": temp,
+            "max_tokens": max_tok,
             "stream": true,
         });
 
         let response = self.client
-            .post(&self.config.api_url)
+            .post(&api_url)
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
+            .header("HTTP-Referer", "https://openzax.dev")
+            .header("X-Title", "OpenZax")
             .json(&request_body)
             .send()
             .await?;
@@ -149,6 +193,8 @@ impl Agent {
             )
         ).lines();
 
+        let mut full_content = String::new();
+
         while let Some(line) = lines.next_line().await? {
             let line: String = line;
             if line.starts_with("data: ") {
@@ -159,6 +205,7 @@ impl Agent {
 
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
                     if let Some(content) = json["choices"][0]["delta"]["content"].as_str() {
+                        full_content.push_str(content);
                         self.event_bus.publish(Event::AgentTokenStream {
                             agent_id: self.id,
                             token: content.to_string(),
@@ -171,6 +218,12 @@ impl Agent {
                 }
             }
         }
+
+        self.event_bus.publish(Event::AgentOutput {
+            agent_id: self.id,
+            content: full_content,
+            timestamp: Utc::now(),
+        })?;
 
         Ok(())
     }
