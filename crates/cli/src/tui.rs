@@ -69,16 +69,21 @@ pub struct FreeModel {
 }
 
 const FREE_MODELS: &[FreeModel] = &[
-    FreeModel { id: "deepseek/deepseek-r1-0528:free",                 display: "DeepSeek R1",       ctx: "128K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
+    // ── OpenRouter ───────────────────────────────────────────────────────────
+    FreeModel { id: "arcee-ai/trinity-large-preview:free",           display: "Trinity Large",     ctx: "128K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
+    FreeModel { id: "stepfun/step-3.5-flash:free",                   display: "Step 3.5 Flash",    ctx: "256K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
+    FreeModel { id: "deepseek/deepseek-r1-0528:free",                display: "DeepSeek R1",       ctx: "128K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
     FreeModel { id: "qwen/qwen3-235b-a22b:free",                     display: "Qwen3 235B",        ctx: "40K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
     FreeModel { id: "meta-llama/llama-3.3-70b-instruct:free",        display: "Llama 3.3 70B",     ctx: "128K", provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
     FreeModel { id: "mistralai/mistral-small-3.1-24b-instruct:free", display: "Mistral Small 3.1", ctx: "96K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
     FreeModel { id: "google/gemma-3-27b-it:free",                    display: "Gemma 3 27B",       ctx: "96K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
     FreeModel { id: "google/gemma-3-4b-it:free",                     display: "Gemma 3 4B",        ctx: "32K",  provider: "OpenRouter", api_url: "https://openrouter.ai/api/v1/chat/completions" },
+    // ── Groq ────────────────────────────────────────────────────────────────
     FreeModel { id: "llama-3.3-70b-versatile",                       display: "Llama 3.3 70B",     ctx: "128K", provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions" },
     FreeModel { id: "llama-3.1-8b-instant",                          display: "Llama 3.1 8B",      ctx: "128K", provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions" },
     FreeModel { id: "gemma2-9b-it",                                  display: "Gemma 2 9B",        ctx: "8K",   provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions" },
     FreeModel { id: "mixtral-8x7b-32768",                            display: "Mixtral 8x7B",      ctx: "32K",  provider: "Groq",       api_url: "https://api.groq.com/openai/v1/chat/completions" },
+    // ── Cerebras ────────────────────────────────────────────────────────────
     FreeModel { id: "llama-3.3-70b",                                 display: "Llama 3.3 70B",     ctx: "128K", provider: "Cerebras",   api_url: "https://api.cerebras.ai/v1/chat/completions" },
     FreeModel { id: "qwen-3-32b",                                    display: "Qwen3 32B",         ctx: "32K",  provider: "Cerebras",   api_url: "https://api.cerebras.ai/v1/chat/completions" },
 ];
