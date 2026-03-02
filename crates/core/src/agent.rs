@@ -58,6 +58,14 @@ impl Agent {
         self.config.lock().unwrap().model = model;
     }
 
+    pub fn set_api_url(&self, url: String) {
+        self.config.lock().unwrap().api_url = url;
+    }
+
+    pub fn set_api_key(&self, key: String) {
+        self.config.lock().unwrap().api_key = Some(key);
+    }
+
     pub fn model_name(&self) -> String {
         self.config.lock().unwrap().model.clone()
     }

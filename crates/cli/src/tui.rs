@@ -11,7 +11,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
     Frame, Terminal,
 };
 use std::{
@@ -19,6 +19,7 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
+use dirs;
 use openzax_core::{
     agent::{Agent, AgentConfig},
     event::{Event as OzEvent, EventBus},
@@ -44,14 +45,15 @@ const G3:       Color = Color::Rgb(70, 70, 70);
 const G4:       Color = Color::Rgb(45, 45, 45);
 const BLK:      Color = Color::Rgb(10, 10, 10);
 
-// ─── Brand (clean block letters) ─────────────────────────────────────────────
+// ─── Brand (ANSI Shadow style) ───────────────────────────────────────────────
 
 const BRAND: &[&str] = &[
-    " @@@@  @@@@@  @@@@@ @@  @@     @@@@@@  @@@  @@  @@",
-    "@@  @@ @@  @@ @@    @@@@ @@       @@  @@  @@  @@@@",
-    "@@  @@ @@@@@  @@@@  @@ @@@@ @@   @@   @@@@@@   @@",
-    "@@  @@ @@     @@    @@  @@@ @@  @@    @@  @@  @@@@",
-    " @@@@  @@     @@@@@ @@   @@ @@ @@@@@@ @@  @@ @@  @@",
+    " ██████╗ ██████╗ ███████╗███╗   ██╗███████╗ █████╗ ██╗  ██╗",
+    "██╔═══██╗██╔══██╗██╔════╝████╗  ██║╚══███╔╝██╔══██╗╚██╗██╔╝",
+    "██║   ██║██████╔╝█████╗  ██╔██╗ ██║  ███╔╝ ███████║ ╚███╔╝ ",
+    "██║   ██║██╔═══╝ ██╔══╝  ██║╚██╗██║ ███╔╝  ██╔══██║ ██╔██╗ ",
+    "╚██████╔╝██║     ███████╗██║ ╚████║███████╗██║  ██║██╔╝ ██╗",
+    " ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝",
 ];
 
 // ─── Intelligence tiers ──────────────────────────────────────────────────────
@@ -294,7 +296,7 @@ fn render(f: &mut Frame, app: &mut App) {
 fn draw_empty(f: &mut Frame, app: &App) {
     let a = f.area();
     let brand_h = BRAND.len() as u16;
-    let content_h = brand_h + 12;
+    let content_h = brand_h + 14;
     let top = a.height.saturating_sub(content_h) / 2;
 
     let chunks = Layout::default()
@@ -303,7 +305,7 @@ fn draw_empty(f: &mut Frame, app: &App) {
             Constraint::Length(top),
             Constraint::Length(brand_h),
             Constraint::Length(3),
-            Constraint::Length(3),
+            Constraint::Length(5),
             Constraint::Length(2),
             Constraint::Length(1),
             Constraint::Length(2),
@@ -316,8 +318,7 @@ fn draw_empty(f: &mut Frame, app: &App) {
     // Brand
     let mut bl: Vec<Line> = Vec::new();
     for line in BRAND {
-        let styled: String = line.replace('@', "\u{2588}");
-        bl.push(Line::from(Span::styled(styled, Style::default().fg(W).add_modifier(Modifier::BOLD))));
+        bl.push(Line::from(Span::styled(*line, Style::default().fg(W).add_modifier(Modifier::BOLD))));
     }
     f.render_widget(
         Paragraph::new(bl).alignment(Alignment::Center).style(Style::default().bg(BG)),
@@ -374,23 +375,51 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
 
     let cursor_char = if app.cursor_visible { "\u{2588}" } else { " " };
 
-    let line = if app.input.is_empty() {
-        Line::from(vec![
+    if app.input.is_empty() {
+        let line = Line::from(vec![
             Span::styled(" > ", Style::default().fg(G1).add_modifier(Modifier::BOLD)),
             Span::styled(cursor_char, Style::default().fg(W)),
-            Span::styled(" Ask anything...", Style::default().fg(G4)),
-        ])
+            Span::styled(" Ask anything...  Shift+Enter for new line", Style::default().fg(G4)),
+        ]);
+        f.render_widget(Paragraph::new(line).style(Style::default().bg(BG_INPUT)), inner);
     } else {
         let before = &app.input[..app.cursor];
         let after = if app.cursor < app.input.len() { &app.input[app.cursor..] } else { "" };
-        Line::from(vec![
-            Span::styled(" > ", Style::default().fg(G1).add_modifier(Modifier::BOLD)),
-            Span::styled(before, Style::default().fg(W)),
-            Span::styled(cursor_char, Style::default().fg(W)),
-            Span::styled(after, Style::default().fg(W)),
-        ])
-    };
-    f.render_widget(Paragraph::new(line).style(Style::default().bg(BG_INPUT)), inner);
+
+        let before_parts: Vec<&str> = before.split('\n').collect();
+        let after_parts: Vec<&str> = after.split('\n').collect();
+
+        let mut all_lines: Vec<Line> = Vec::new();
+        for (i, part) in before_parts.iter().enumerate() {
+            let is_last = i == before_parts.len() - 1;
+            let prefix = if i == 0 {
+                Span::styled(" > ", Style::default().fg(G1).add_modifier(Modifier::BOLD))
+            } else {
+                Span::styled("   ", Style::default().fg(G4))
+            };
+            if is_last {
+                let after_first = after_parts.first().copied().unwrap_or("");
+                all_lines.push(Line::from(vec![
+                    prefix,
+                    Span::styled(*part, Style::default().fg(W)),
+                    Span::styled(cursor_char, Style::default().fg(W)),
+                    Span::styled(after_first, Style::default().fg(W)),
+                ]));
+            } else {
+                all_lines.push(Line::from(vec![
+                    prefix,
+                    Span::styled(*part, Style::default().fg(W)),
+                ]));
+            }
+        }
+        for part in after_parts.iter().skip(1) {
+            all_lines.push(Line::from(vec![
+                Span::styled("   ", Style::default().fg(G4)),
+                Span::styled(*part, Style::default().fg(W)),
+            ]));
+        }
+        f.render_widget(Paragraph::new(Text::from(all_lines)).style(Style::default().bg(BG_INPUT)), inner);
+    }
 }
 
 fn draw_chat(f: &mut Frame, app: &mut App) {
@@ -401,7 +430,7 @@ fn draw_chat(f: &mut Frame, app: &mut App) {
         .split(a);
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(0), Constraint::Length(5)])
+        .constraints([Constraint::Min(0), Constraint::Length(7)])
         .split(cols[0]);
 
     draw_messages(f, app, rows[0]);
@@ -464,7 +493,7 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
 fn draw_bottom(f: &mut Frame, app: &App, area: Rect) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Length(3), Constraint::Length(1)])
+        .constraints([Constraint::Length(1), Constraint::Length(5), Constraint::Length(1)])
         .split(area);
 
     let info = Line::from(vec![
@@ -528,10 +557,11 @@ fn popup_rect(area: Rect, w: u16, h: u16) -> Rect {
 }
 
 fn draw_commands(f: &mut Frame, app: &mut App) {
-    let popup = popup_rect(f.area(), 48, 18);
+    let popup = popup_rect(f.area(), 50, 20);
     app.ov_rect = popup;
+    f.render_widget(Clear, popup);
     f.render_widget(Block::default().style(Style::default().bg(BG_POPUP)), popup);
-    let blk = Block::default().borders(Borders::ALL).border_style(Style::default().fg(G4))
+    let blk = Block::default().borders(Borders::ALL).border_style(Style::default().fg(BD))
         .style(Style::default().bg(BG_POPUP))
         .title(Span::styled(" Commands ", Style::default().fg(W).add_modifier(Modifier::BOLD)));
     let inner = blk.inner(popup);
@@ -571,10 +601,11 @@ fn draw_commands(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_skills(f: &mut Frame, app: &mut App) {
-    let popup = popup_rect(f.area(), 60, 24);
+    let popup = popup_rect(f.area(), 62, 26);
     app.ov_rect = popup;
+    f.render_widget(Clear, popup);
     f.render_widget(Block::default().style(Style::default().bg(BG_POPUP)), popup);
-    let blk = Block::default().borders(Borders::ALL).border_style(Style::default().fg(G4))
+    let blk = Block::default().borders(Borders::ALL).border_style(Style::default().fg(BD))
         .style(Style::default().bg(BG_POPUP))
         .title(Span::styled(" Skills ", Style::default().fg(W).add_modifier(Modifier::BOLD)));
     let inner = blk.inner(popup);
@@ -609,11 +640,12 @@ fn draw_skills(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_models(f: &mut Frame, app: &mut App) {
-    let h = (FREE_MODELS.len() as u16) + 5;
-    let popup = popup_rect(f.area(), 54, h);
+    let h = (FREE_MODELS.len() as u16) + 6;
+    let popup = popup_rect(f.area(), 56, h);
     app.ov_rect = popup;
+    f.render_widget(Clear, popup);
     f.render_widget(Block::default().style(Style::default().bg(BG_POPUP)), popup);
-    let blk = Block::default().borders(Borders::ALL).border_style(Style::default().fg(G4))
+    let blk = Block::default().borders(Borders::ALL).border_style(Style::default().fg(BD))
         .style(Style::default().bg(BG_POPUP))
         .title(Span::styled(" Switch Model ", Style::default().fg(W).add_modifier(Modifier::BOLD)));
     let inner = blk.inner(popup);
@@ -675,13 +707,31 @@ fn handle_slash(app: &mut App, cmd: &str) -> bool {
 
 // ─── Entry ───────────────────────────────────────────────────────────────────
 
-pub async fn run_tui(model_name: String, api_key: Option<String>, db_path: std::path::PathBuf) -> anyhow::Result<()> {
+// Default bundled API key (shared, rate-limited – get your own at openrouter.ai/keys)
+const DEFAULT_API_KEY: &str = "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";
+
+fn load_config_api_key() -> Option<String> {
+    let home = dirs::home_dir()?;
+    let config = home.join(".openzax").join("config.toml");
+    let content = std::fs::read_to_string(config).ok()?;
+    for line in content.lines() {
+        if line.trim_start().starts_with("api_key") {
+            if let Some(val) = line.splitn(2, '=').nth(1) {
+                let key = val.trim().trim_matches('"').trim_matches('\'').to_string();
+                if !key.is_empty() { return Some(key); }
+            }
+        }
+    }
+    None
+}
+
+pub async fn run_tui(model_name: String, api_key: Option<String>, db_path: std::path::PathBuf, update_msg: Option<String>) -> anyhow::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let res = main_loop(&mut terminal, model_name, api_key, db_path).await;
+    let res = main_loop(&mut terminal, model_name, api_key, db_path, update_msg).await;
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;
@@ -693,17 +743,18 @@ async fn main_loop(
     model_name: String,
     api_key: Option<String>,
     db_path: std::path::PathBuf,
+    update_msg: Option<String>,
 ) -> anyhow::Result<()> {
     let mut app = App::new(&model_name);
 
     let key = api_key
         .or_else(|| std::env::var("OPENZAX_API_KEY").ok())
-        .or_else(|| std::env::var("OPENROUTER_API_KEY").ok());
+        .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
+        .or_else(load_config_api_key)
+        .or_else(|| Some(DEFAULT_API_KEY.to_string()));
 
-    if key.is_none() {
-        app.pending_sys.push("No API key. Get free keys (no credit card):".into());
-        app.pending_sys.push("  openrouter.ai/keys  .  console.groq.com  .  cloud.cerebras.ai".into());
-        app.pending_sys.push("Then: set OPENROUTER_API_KEY=sk-or-... && openzax".into());
+    if let Some(ref msg) = update_msg {
+        app.pending_sys.push(format!("  Update available: {}", msg));
     }
 
     if let Some(p) = db_path.parent() { std::fs::create_dir_all(p).ok(); }
@@ -831,6 +882,12 @@ async fn main_loop(
                     continue;
                 }
 
+                // Shift+Enter inserts a newline in the input
+                if key.code == KeyCode::Enter && key.modifiers.contains(KeyModifiers::SHIFT) {
+                    app.ins('\n');
+                    continue;
+                }
+
                 match key.code {
                     KeyCode::Enter => {
                         let text = app.take();
@@ -918,6 +975,17 @@ fn execute_overlay(app: &mut App, agent: &Arc<Agent>) {
                 app.model_provider = m.provider.to_string();
                 app.model_api = m.api_url.to_string();
                 agent.set_model(m.id.to_string());
+                agent.set_api_url(m.api_url.to_string());
+                // Use provider-specific API key if available
+                let provider_key = match m.provider {
+                    "Groq"     => std::env::var("GROQ_API_KEY").ok(),
+                    "Cerebras" => std::env::var("CEREBRAS_API_KEY").ok(),
+                    _          => std::env::var("OPENROUTER_API_KEY").ok()
+                                    .or_else(|| std::env::var("OPENZAX_API_KEY").ok())
+                                    .or_else(load_config_api_key)
+                                    .or_else(|| Some(DEFAULT_API_KEY.to_string())),
+                };
+                if let Some(k) = provider_key { agent.set_api_key(k); }
                 app.push(Msg::System(format!("Model: {} ({})", m.display, m.provider)));
             }
         }

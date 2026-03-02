@@ -213,6 +213,45 @@ enum McpCommands {
     },
 }
 
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+fn load_api_key_from_config() -> Option<String> {
+    let home = dirs::home_dir()?;
+    let config = home.join(".openzax").join("config.toml");
+    let content = std::fs::read_to_string(config).ok()?;
+    for line in content.lines() {
+        if line.trim_start().starts_with("api_key") {
+            if let Some(val) = line.splitn(2, '=').nth(1) {
+                let key = val.trim().trim_matches('"').trim_matches('\'').to_string();
+                if !key.is_empty() { return Some(key); }
+            }
+        }
+    }
+    None
+}
+
+async fn check_for_update() -> Option<String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(2))
+        .user_agent("openzax-cli")
+        .build()
+        .ok()?;
+    let resp = client
+        .get("https://api.github.com/repos/zAxCoder/OpenZax/releases/latest")
+        .send()
+        .await
+        .ok()?;
+    if !resp.status().is_success() { return None; }
+    let json: serde_json::Value = resp.json().await.ok()?;
+    let tag = json["tag_name"].as_str()?;
+    let current = format!("v{}", env!("CARGO_PKG_VERSION"));
+    if tag != current.as_str() {
+        Some(format!("{} → {} available", current, tag))
+    } else {
+        None
+    }
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 
 #[tokio::main]
@@ -230,8 +269,11 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Some(Commands::Shell { api_key, model, db_path }) => {
-            let resolved_key = api_key.or_else(|| std::env::var("OPENZAX_API_KEY").ok());
-            tui::run_tui(model, resolved_key, db_path).await?;
+            let resolved_key = api_key
+                .or_else(|| std::env::var("OPENZAX_API_KEY").ok())
+                .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
+                .or_else(load_api_key_from_config);
+            tui::run_tui(model, resolved_key, db_path, None).await?;
         }
         Some(Commands::Init { name, language }) => {
             ui::print_banner();
@@ -295,10 +337,19 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
         None => {
-            let api_key = std::env::var("OPENZAX_API_KEY").ok().or_else(|| std::env::var("OPENROUTER_API_KEY").ok());
+            let api_key = std::env::var("OPENZAX_API_KEY").ok()
+                .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
+                .or_else(load_api_key_from_config);
             let model = "deepseek/deepseek-r1-0528:free".to_string();
-            let db_path = std::path::PathBuf::from(".openzax/openzax.db");
-            tui::run_tui(model, api_key, db_path).await?;
+            let db_path = dirs::home_dir()
+                .map(|h| h.join(".openzax").join("openzax.db"))
+                .unwrap_or_else(|| std::path::PathBuf::from(".openzax/openzax.db"));
+            // Background update check (2s timeout)
+            let update_msg = tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                check_for_update(),
+            ).await.ok().flatten();
+            tui::run_tui(model, api_key, db_path, update_msg).await?;
         }
     }
 
