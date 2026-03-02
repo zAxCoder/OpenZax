@@ -270,10 +270,7 @@ impl Watchdog {
     ///
     /// When the monitored agent is silent for longer than `timeout`, the
     /// provided `kill_switch` is triggered with `WatchdogTimeout`.
-    pub fn spawn(
-        self,
-        kill_switch: Arc<Mutex<KillSwitch>>,
-    ) -> tokio::task::JoinHandle<()> {
+    pub fn spawn(self, kill_switch: Arc<Mutex<KillSwitch>>) -> tokio::task::JoinHandle<()> {
         let last_heartbeat = Arc::clone(&self.last_heartbeat);
         let timeout = self.timeout;
         let agent_id = self.agent_id.clone();
@@ -292,11 +289,7 @@ impl Watchdog {
                     if let Ok(ks) = kill_switch.lock() {
                         let _ = ks.trigger(
                             KillSwitchTrigger::WatchdogTimeout,
-                            format!(
-                                "Agent {} silent for {}s",
-                                agent_id,
-                                elapsed.as_secs()
-                            ),
+                            format!("Agent {} silent for {}s", agent_id, elapsed.as_secs()),
                         );
                     }
                     break;

@@ -23,7 +23,7 @@ impl CloudProvider {
 
     pub async fn generate(&self, prompt: &str, max_tokens: usize) -> LlmResult<String> {
         info!("Calling cloud API: {}", self.api_url);
-        
+
         let request = CloudRequest {
             model: self.model.clone(),
             messages: vec![Message {
@@ -35,7 +35,8 @@ impl CloudProvider {
             stream: false,
         };
 
-        let response = self.client
+        let response = self
+            .client
             .post(&self.api_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
@@ -49,8 +50,9 @@ impl CloudProvider {
         }
 
         let cloud_response: CloudResponse = response.json().await?;
-        
-        let content = cloud_response.choices
+
+        let content = cloud_response
+            .choices
             .first()
             .and_then(|c| c.message.content.clone())
             .ok_or_else(|| LlmError::Inference("No content in response".to_string()))?;
@@ -65,7 +67,7 @@ impl CloudProvider {
         max_tokens: usize,
     ) -> LlmResult<impl futures::Stream<Item = LlmResult<String>>> {
         info!("Calling cloud API (streaming): {}", self.api_url);
-        
+
         let request = CloudRequest {
             model: self.model.clone(),
             messages: vec![Message {
@@ -77,7 +79,8 @@ impl CloudProvider {
             stream: true,
         };
 
-        let response = self.client
+        let response = self
+            .client
             .post(&self.api_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
@@ -93,7 +96,9 @@ impl CloudProvider {
         // TODO: Implement actual streaming
         // For now, return a placeholder stream
         use futures::stream;
-        Ok(stream::once(async { Ok("Streaming not yet implemented".to_string()) }))
+        Ok(stream::once(async {
+            Ok("Streaming not yet implemented".to_string())
+        }))
     }
 }
 

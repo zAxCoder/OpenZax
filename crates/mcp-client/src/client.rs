@@ -1,8 +1,4 @@
-use crate::{
-    McpError, McpResult,
-    protocol::*,
-    transport::Transport,
-};
+use crate::{protocol::*, transport::Transport, McpError, McpResult};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -52,7 +48,7 @@ impl McpClient {
 
     pub async fn initialize(&self) -> McpResult<InitializeResponse> {
         info!("Initializing MCP client");
-        
+
         let request = InitializeRequest {
             protocol_version: self.config.protocol_version.clone(),
             capabilities: ClientCapabilities {
@@ -67,131 +63,154 @@ impl McpClient {
 
         let params = serde_json::to_value(request)?;
         let rpc_request = JsonRpcRequest::new(self.next_id(), "initialize", Some(params));
-        
+
         let mut transport = self.transport.lock().await;
         let response = transport.send(rpc_request).await?;
-        
+
         let init_response: InitializeResponse = serde_json::from_value(
-            response.result.ok_or_else(|| McpError::Protocol("No result in response".to_string()))?
+            response
+                .result
+                .ok_or_else(|| McpError::Protocol("No result in response".to_string()))?,
         )?;
-        
+
         *self.server_info.lock().await = Some(init_response.server_info.clone());
         *self.server_capabilities.lock().await = Some(init_response.capabilities.clone());
-        
-        info!("MCP client initialized: server={} v{}", 
-              init_response.server_info.name, 
-              init_response.server_info.version);
-        
+
+        info!(
+            "MCP client initialized: server={} v{}",
+            init_response.server_info.name, init_response.server_info.version
+        );
+
         Ok(init_response)
     }
 
     pub async fn list_tools(&self) -> McpResult<Vec<Tool>> {
         debug!("Listing tools");
-        
+
         let rpc_request = JsonRpcRequest::new(self.next_id(), "tools/list", None);
-        
+
         let mut transport = self.transport.lock().await;
         let response = transport.send(rpc_request).await?;
-        
+
         let tools_response: ToolsListResponse = serde_json::from_value(
-            response.result.ok_or_else(|| McpError::Protocol("No result".to_string()))?
+            response
+                .result
+                .ok_or_else(|| McpError::Protocol("No result".to_string()))?,
         )?;
-        
+
         debug!("Found {} tools", tools_response.tools.len());
         Ok(tools_response.tools)
     }
 
-    pub async fn call_tool(&self, name: &str, arguments: Option<serde_json::Value>) -> McpResult<ToolCallResponse> {
+    pub async fn call_tool(
+        &self,
+        name: &str,
+        arguments: Option<serde_json::Value>,
+    ) -> McpResult<ToolCallResponse> {
         debug!("Calling tool: {}", name);
-        
+
         let request = ToolCallRequest {
             name: name.to_string(),
             arguments,
         };
-        
+
         let params = serde_json::to_value(request)?;
         let rpc_request = JsonRpcRequest::new(self.next_id(), "tools/call", Some(params));
-        
+
         let mut transport = self.transport.lock().await;
         let response = transport.send(rpc_request).await?;
-        
+
         let tool_response: ToolCallResponse = serde_json::from_value(
-            response.result.ok_or_else(|| McpError::Protocol("No result".to_string()))?
+            response
+                .result
+                .ok_or_else(|| McpError::Protocol("No result".to_string()))?,
         )?;
-        
+
         Ok(tool_response)
     }
 
     pub async fn list_resources(&self) -> McpResult<Vec<Resource>> {
         debug!("Listing resources");
-        
+
         let rpc_request = JsonRpcRequest::new(self.next_id(), "resources/list", None);
-        
+
         let mut transport = self.transport.lock().await;
         let response = transport.send(rpc_request).await?;
-        
+
         let resources_response: ResourcesListResponse = serde_json::from_value(
-            response.result.ok_or_else(|| McpError::Protocol("No result".to_string()))?
+            response
+                .result
+                .ok_or_else(|| McpError::Protocol("No result".to_string()))?,
         )?;
-        
+
         debug!("Found {} resources", resources_response.resources.len());
         Ok(resources_response.resources)
     }
 
     pub async fn read_resource(&self, uri: &str) -> McpResult<ResourceReadResponse> {
         debug!("Reading resource: {}", uri);
-        
+
         let request = ResourceReadRequest {
             uri: uri.to_string(),
         };
-        
+
         let params = serde_json::to_value(request)?;
         let rpc_request = JsonRpcRequest::new(self.next_id(), "resources/read", Some(params));
-        
+
         let mut transport = self.transport.lock().await;
         let response = transport.send(rpc_request).await?;
-        
+
         let resource_response: ResourceReadResponse = serde_json::from_value(
-            response.result.ok_or_else(|| McpError::Protocol("No result".to_string()))?
+            response
+                .result
+                .ok_or_else(|| McpError::Protocol("No result".to_string()))?,
         )?;
-        
+
         Ok(resource_response)
     }
 
     pub async fn list_prompts(&self) -> McpResult<Vec<Prompt>> {
         debug!("Listing prompts");
-        
+
         let rpc_request = JsonRpcRequest::new(self.next_id(), "prompts/list", None);
-        
+
         let mut transport = self.transport.lock().await;
         let response = transport.send(rpc_request).await?;
-        
+
         let prompts_response: PromptsListResponse = serde_json::from_value(
-            response.result.ok_or_else(|| McpError::Protocol("No result".to_string()))?
+            response
+                .result
+                .ok_or_else(|| McpError::Protocol("No result".to_string()))?,
         )?;
-        
+
         debug!("Found {} prompts", prompts_response.prompts.len());
         Ok(prompts_response.prompts)
     }
 
-    pub async fn get_prompt(&self, name: &str, arguments: Option<serde_json::Value>) -> McpResult<PromptGetResponse> {
+    pub async fn get_prompt(
+        &self,
+        name: &str,
+        arguments: Option<serde_json::Value>,
+    ) -> McpResult<PromptGetResponse> {
         debug!("Getting prompt: {}", name);
-        
+
         let request = PromptGetRequest {
             name: name.to_string(),
             arguments,
         };
-        
+
         let params = serde_json::to_value(request)?;
         let rpc_request = JsonRpcRequest::new(self.next_id(), "prompts/get", Some(params));
-        
+
         let mut transport = self.transport.lock().await;
         let response = transport.send(rpc_request).await?;
-        
+
         let prompt_response: PromptGetResponse = serde_json::from_value(
-            response.result.ok_or_else(|| McpError::Protocol("No result".to_string()))?
+            response
+                .result
+                .ok_or_else(|| McpError::Protocol("No result".to_string()))?,
         )?;
-        
+
         Ok(prompt_response)
     }
 

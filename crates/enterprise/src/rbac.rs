@@ -41,6 +41,7 @@ impl Role {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s {
             "super_admin" => Role::SuperAdmin,
@@ -157,6 +158,7 @@ impl Permission {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Permission> {
         match s {
             "manage_org" => Some(Permission::ManageOrg),
@@ -309,9 +311,8 @@ impl RbacEngine {
 
     pub fn list_org_users(&self, org_id: &str) -> Result<Vec<(String, Role)>, RbacError> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT user_id, role FROM user_roles WHERE organization_id = ?1",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT user_id, role FROM user_roles WHERE organization_id = ?1")?;
         let rows = stmt.query_map(params![org_id], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })?;

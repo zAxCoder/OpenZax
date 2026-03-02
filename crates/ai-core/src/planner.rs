@@ -38,7 +38,9 @@ impl PlanNodeStatus {
     pub fn is_terminal(&self) -> bool {
         matches!(
             self,
-            PlanNodeStatus::Completed { .. } | PlanNodeStatus::Failed { .. } | PlanNodeStatus::Pruned
+            PlanNodeStatus::Completed { .. }
+                | PlanNodeStatus::Failed { .. }
+                | PlanNodeStatus::Pruned
         )
     }
 }
@@ -136,8 +138,7 @@ impl PlanDAG {
                 return Ok(());
             }
             stack.push(id);
-            let node =
-                dag.nodes.get(&id).ok_or(PlannerError::NodeNotFound(id))?;
+            let node = dag.nodes.get(&id).ok_or(PlannerError::NodeNotFound(id))?;
             for &child_id in &node.children {
                 dfs(dag, child_id, visited, stack, order)?;
             }
@@ -190,7 +191,12 @@ impl PlanningEngine {
         let root = PlanNode {
             id: Uuid::new_v4(),
             parent_id: None,
-            thought: format!("Achieve: {} | Context: {} | Constraints: {}", goal, context, constraints.join(", ")),
+            thought: format!(
+                "Achieve: {} | Context: {} | Constraints: {}",
+                goal,
+                context,
+                constraints.join(", ")
+            ),
             action: None,
             estimated_cost: 0.0,
             expected_outcome: goal.to_string(),
@@ -272,7 +278,10 @@ impl PlanningEngine {
         let mut last_result = serde_json::Value::Null;
 
         for node_id in order {
-            let node = dag.nodes.get(&node_id).ok_or(PlannerError::NodeNotFound(node_id))?;
+            let node = dag
+                .nodes
+                .get(&node_id)
+                .ok_or(PlannerError::NodeNotFound(node_id))?;
             if matches!(node.status, PlanNodeStatus::Pruned) {
                 continue;
             }
@@ -282,25 +291,23 @@ impl PlanningEngine {
                 let start = std::time::Instant::now();
                 match executor(action).await {
                     Ok(result) => {
-                        tracing::debug!(
-                            "Node {} completed in {:?}",
-                            node_id,
-                            start.elapsed()
-                        );
+                        tracing::debug!("Node {} completed in {:?}", node_id, start.elapsed());
                         last_result = result.clone();
                         dag.nodes.get_mut(&node_id).unwrap().status =
                             PlanNodeStatus::Completed { result };
                     }
                     Err(error) => {
                         tracing::warn!("Node {} failed: {}", node_id, error);
-                        dag.nodes.get_mut(&node_id).unwrap().status =
-                            PlanNodeStatus::Failed { error: error.clone() };
+                        dag.nodes.get_mut(&node_id).unwrap().status = PlanNodeStatus::Failed {
+                            error: error.clone(),
+                        };
                         return Err(PlannerError::ExecutionError(node_id, error));
                     }
                 }
             } else {
-                dag.nodes.get_mut(&node_id).unwrap().status =
-                    PlanNodeStatus::Completed { result: serde_json::Value::Null };
+                dag.nodes.get_mut(&node_id).unwrap().status = PlanNodeStatus::Completed {
+                    result: serde_json::Value::Null,
+                };
             }
         }
 
@@ -329,7 +336,10 @@ impl PlanningEngine {
             .parent_id;
 
         let attach_to = parent_id.unwrap_or(dag.root_id);
-        let recovery_thought = format!("Recovery from failure '{}': retry with fallback approach", error);
+        let recovery_thought = format!(
+            "Recovery from failure '{}': retry with fallback approach",
+            error
+        );
         let mut recovery_node = PlanNode::new(
             Some(attach_to),
             recovery_thought,
@@ -436,7 +446,11 @@ impl PlanningEngine {
     fn estimate_node_score(&self, node: &PlanNode, _dag: &PlanDAG) -> f32 {
         // Simple heuristic: nodes with lower cost and clear outcomes score higher
         let cost_factor = (1.0 - node.estimated_cost.min(1.0)).max(0.0);
-        let has_outcome = if node.expected_outcome.is_empty() { 0.3 } else { 0.7 };
+        let has_outcome = if node.expected_outcome.is_empty() {
+            0.3
+        } else {
+            0.7
+        };
         (cost_factor * 0.4 + has_outcome * 0.6).min(1.0)
     }
 }

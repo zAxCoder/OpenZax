@@ -43,7 +43,10 @@ impl ModelRouter {
     }
 
     pub async fn unregister_model(&self, model_id: &str) -> LlmResult<()> {
-        self.models.write().await.remove(model_id)
+        self.models
+            .write()
+            .await
+            .remove(model_id)
             .ok_or_else(|| LlmError::ModelNotFound(model_id.to_string()))?;
         info!("Unregistered model: {}", model_id);
         Ok(())
@@ -54,7 +57,10 @@ impl ModelRouter {
     }
 
     pub async fn get_model(&self, model_id: &str) -> LlmResult<Model> {
-        self.models.read().await.get(model_id)
+        self.models
+            .read()
+            .await
+            .get(model_id)
             .cloned()
             .ok_or_else(|| LlmError::ModelNotFound(model_id.to_string()))
     }
@@ -65,27 +71,31 @@ impl ModelRouter {
         context_size: usize,
     ) -> LlmResult<Model> {
         let models = self.models.read().await;
-        
+
         if models.is_empty() {
             return Err(LlmError::ModelNotFound("No models registered".to_string()));
         }
 
-        let mut candidates: Vec<_> = models.values()
+        let mut candidates: Vec<_> = models
+            .values()
             .filter(|m| {
                 // Check context window
                 if context_size > m.info.context_window {
                     return false;
                 }
-                
+
                 // Check capabilities
-                required_capabilities.iter().all(|cap| m.supports_capability(cap))
+                required_capabilities
+                    .iter()
+                    .all(|cap| m.supports_capability(cap))
             })
             .collect();
 
         if candidates.is_empty() {
-            return Err(LlmError::ModelNotFound(
-                format!("No model found matching requirements: {:?}", required_capabilities)
-            ));
+            return Err(LlmError::ModelNotFound(format!(
+                "No model found matching requirements: {:?}",
+                required_capabilities
+            )));
         }
 
         // Score and sort candidates
@@ -95,9 +105,11 @@ impl ModelRouter {
             score_b.partial_cmp(&score_a).unwrap()
         });
 
-        debug!("Selected model: {} (score: {:.3})", 
-               candidates[0].info.id, 
-               self.score_model(candidates[0], context_size));
+        debug!(
+            "Selected model: {} (score: {:.3})",
+            candidates[0].info.id,
+            self.score_model(candidates[0], context_size)
+        );
 
         Ok(candidates[0].clone())
     }
@@ -130,7 +142,8 @@ impl ModelRouter {
 
     pub async fn update_model_stats(&self, model_id: &str, latency_ms: f64) -> LlmResult<()> {
         let mut models = self.models.write().await;
-        let model = models.get_mut(model_id)
+        let model = models
+            .get_mut(model_id)
             .ok_or_else(|| LlmError::ModelNotFound(model_id.to_string()))?;
 
         // Update rolling average (exponential moving average)
@@ -149,7 +162,7 @@ mod tests {
     #[tokio::test]
     async fn test_model_registration() {
         let router = ModelRouter::new(RouterConfig::default());
-        
+
         let model = Model::new(ModelInfo {
             id: "test-model".to_string(),
             name: "Test Model".to_string(),
@@ -163,7 +176,7 @@ mod tests {
         });
 
         router.register_model(model.clone()).await;
-        
+
         let retrieved = router.get_model("test-model").await.unwrap();
         assert_eq!(retrieved.info.id, "test-model");
     }
@@ -171,7 +184,7 @@ mod tests {
     #[tokio::test]
     async fn test_model_selection() {
         let router = ModelRouter::new(RouterConfig::default());
-        
+
         let model1 = Model::new(ModelInfo {
             id: "fast-model".to_string(),
             name: "Fast Model".to_string(),
@@ -199,10 +212,10 @@ mod tests {
         router.register_model(model1).await;
         router.register_model(model2).await;
 
-        let selected = router.select_best_model(
-            &[ModelCapability::Chat],
-            1000
-        ).await.unwrap();
+        let selected = router
+            .select_best_model(&[ModelCapability::Chat], 1000)
+            .await
+            .unwrap();
 
         assert!(selected.info.context_window >= 1000);
     }

@@ -1,4 +1,4 @@
-use crate::{LlmError, LlmResult, Model, ModelInfo};
+use crate::{LlmError, LlmResult, ModelInfo};
 use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
@@ -15,7 +15,7 @@ impl LocalModelManager {
 
     pub fn discover_models(&self) -> LlmResult<Vec<ModelInfo>> {
         info!("Discovering models in {:?}", self.models_dir);
-        
+
         if !self.models_dir.exists() {
             std::fs::create_dir_all(&self.models_dir)?;
             return Ok(vec![]);
@@ -40,7 +40,8 @@ impl LocalModelManager {
     }
 
     fn parse_model_info(&self, path: &Path) -> LlmResult<ModelInfo> {
-        let file_name = path.file_stem()
+        let file_name = path
+            .file_stem()
             .and_then(|s| s.to_str())
             .ok_or_else(|| LlmError::InvalidFormat("Invalid filename".to_string()))?;
 
@@ -49,7 +50,8 @@ impl LocalModelManager {
         // Parse model name and quantization from filename
         // Example: llama-3.3-70b-q4_k_m.gguf
         let parts: Vec<&str> = file_name.split('-').collect();
-        let quantization = parts.last()
+        let quantization = parts
+            .last()
             .filter(|s| s.starts_with('q') || s.starts_with('f'))
             .map(|s| s.to_string());
 
@@ -89,14 +91,15 @@ pub mod llama {
     impl LlamaModel {
         pub fn load(path: &Path) -> LlmResult<Self> {
             info!("Loading llama.cpp model from {:?}", path);
-            
+
             // TODO: Actual llama-cpp-rs integration
             // let model = llama_cpp_rs::Model::load(path)?;
-            
+
             Ok(Self {
                 _model: Arc::new(Mutex::new(())),
                 info: ModelInfo {
-                    id: path.file_stem()
+                    id: path
+                        .file_stem()
                         .and_then(|s| s.to_str())
                         .unwrap_or("unknown")
                         .to_string(),
@@ -117,11 +120,11 @@ pub mod llama {
 
         pub async fn generate(&self, prompt: &str, max_tokens: usize) -> LlmResult<String> {
             info!("Generating response (max_tokens: {})", max_tokens);
-            
+
             // TODO: Actual inference
             // let _lock = self.model.lock().await;
             // let response = model.generate(prompt, max_tokens)?;
-            
+
             Ok(format!("Response to: {}", prompt))
         }
 
@@ -132,12 +135,12 @@ pub mod llama {
 
     pub fn detect_gpu() -> GpuInfo {
         info!("Detecting GPU capabilities");
-        
+
         // TODO: Actual GPU detection
         // - CUDA: check cudaGetDeviceCount
         // - Metal: check MTLCreateSystemDefaultDevice
         // - Vulkan: check vkEnumeratePhysicalDevices
-        
+
         GpuInfo {
             has_cuda: false,
             has_metal: false,
@@ -163,7 +166,7 @@ mod tests {
     fn test_local_model_manager() {
         let temp_dir = std::env::temp_dir().join("openzax-test-models");
         let manager = LocalModelManager::new(&temp_dir);
-        
+
         assert_eq!(manager.get_models_dir(), temp_dir.as_path());
     }
 }

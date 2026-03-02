@@ -1,6 +1,6 @@
-pub mod sandbox;
-pub mod host;
 pub mod error;
+pub mod host;
+pub mod sandbox;
 
-pub use sandbox::{Sandbox, SandboxConfig};
 pub use error::{WasmError, WasmResult};
+pub use sandbox::{Sandbox, SandboxConfig};

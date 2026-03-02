@@ -100,12 +100,16 @@ impl ModuleRegistry {
 
     /// Get a module by ID
     pub fn get(&self, id: Uuid) -> SubWorkflowResult<&SubWorkflowModule> {
-        self.modules.get(&id).ok_or(SubWorkflowError::ModuleNotFound(id))
+        self.modules
+            .get(&id)
+            .ok_or(SubWorkflowError::ModuleNotFound(id))
     }
 
     /// Get a module by name
     pub fn get_by_name(&self, name: &str) -> SubWorkflowResult<&SubWorkflowModule> {
-        let id = self.name_index.get(name)
+        let id = self
+            .name_index
+            .get(name)
             .copied()
             .ok_or_else(|| SubWorkflowError::ModuleNotFoundByName(name.to_string()))?;
         self.get(id)
@@ -279,7 +283,10 @@ fn validate_against_schema(
         if !type_ok {
             return Err(SubWorkflowError::InputValidationFailed {
                 field: context.to_string(),
-                reason: format!("expected type '{type_val}', got {:?}", value_type_name(value)),
+                reason: format!(
+                    "expected type '{type_val}', got {:?}",
+                    value_type_name(value)
+                ),
             });
         }
     }

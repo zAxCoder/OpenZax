@@ -159,7 +159,9 @@ impl ModelRegistry {
              FROM models WHERE id = ?1",
         )?;
         let mut rows = stmt.query(params![id])?;
-        let row = rows.next()?.ok_or_else(|| RouterError::ModelNotFound(id.to_string()))?;
+        let row = rows
+            .next()?
+            .ok_or_else(|| RouterError::ModelNotFound(id.to_string()))?;
         Ok(Self::row_to_spec(row)?)
     }
 
@@ -172,7 +174,8 @@ impl ModelRegistry {
              FROM models",
         )?;
         let rows = stmt.query_map([], Self::row_to_spec)?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(|e| RouterError::Database(e))
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(RouterError::Database)
     }
 
     pub fn update_latency_ema(&self, model_id: &str, measured_ms: u32) -> Result<(), RouterError> {
@@ -280,7 +283,11 @@ impl ModelRouter {
             .collect())
     }
 
-    pub fn update_latency_stats(&self, model_id: &str, measured_ms: u32) -> Result<(), RouterError> {
+    pub fn update_latency_stats(
+        &self,
+        model_id: &str,
+        measured_ms: u32,
+    ) -> Result<(), RouterError> {
         self.registry.update_latency_ema(model_id, measured_ms)
     }
 
@@ -322,7 +329,11 @@ impl ModelRouter {
             })
             .collect();
 
-        scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        scored.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         Ok(scored)
     }
 
@@ -344,13 +355,13 @@ impl ModelRouter {
         // Normalize latency: lower is better. Use 1 - (latency / 10000ms) clamped to [0,1]
         let latency_score = {
             let max_ms = request.max_latency_ms.unwrap_or(10_000) as f32;
-            (1.0 - (model.avg_latency_ms as f32 / max_ms)).max(0.0).min(1.0)
+            (1.0 - (model.avg_latency_ms as f32 / max_ms)).clamp(0.0, 1.0)
         };
 
         // Normalize cost: lower is better. Use 1 - (cost / max_cost) clamped to [0,1]
         let cost_score = {
             let max_cost = request.max_cost_per_1k.unwrap_or(10.0);
-            (1.0 - (model.cost_per_1k_input / max_cost)).max(0.0).min(1.0)
+            (1.0 - (model.cost_per_1k_input / max_cost)).clamp(0.0, 1.0)
         };
 
         // Availability/local preference bonus

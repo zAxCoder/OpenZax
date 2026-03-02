@@ -334,7 +334,10 @@ impl AnomalyDetector {
     fn dominant_anomaly(&self, z: &ZScores) -> (AnomalyType, f64) {
         let candidates: &[(f64, AnomalyType)] = &[
             (z.file_reads.abs(), AnomalyType::ExcessiveFileReads),
-            (z.network_requests.abs(), AnomalyType::ExcessiveNetworkRequests),
+            (
+                z.network_requests.abs(),
+                AnomalyType::ExcessiveNetworkRequests,
+            ),
             (z.cpu_fuel.abs(), AnomalyType::CpuAnomalous),
             (z.memory_bytes.abs(), AnomalyType::MemorySpike),
             (z.total_tool_calls.abs(), AnomalyType::UnusualToolPattern),

@@ -2,7 +2,10 @@ use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, path::PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -63,7 +66,7 @@ impl Permission {
     }
 }
 
-fn path_subsumes(grantor: &PathBuf, requested: &PathBuf) -> bool {
+fn path_subsumes(grantor: &PathBuf, requested: &Path) -> bool {
     if grantor == &PathBuf::from("*") {
         return true;
     }

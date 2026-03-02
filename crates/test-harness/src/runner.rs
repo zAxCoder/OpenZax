@@ -131,7 +131,10 @@ pub struct TestRunner {
 impl TestRunner {
     pub fn new() -> anyhow::Result<Self> {
         let engine = Engine::default();
-        Ok(Self { engine, module: None })
+        Ok(Self {
+            engine,
+            module: None,
+        })
     }
 
     /// Load a WASM skill module from a file path.
@@ -149,11 +152,7 @@ impl TestRunner {
     }
 
     /// Run a single test case against the loaded skill module.
-    pub fn run_test(
-        &self,
-        test_case: &SkillTestCase,
-        host_config: MockHostConfig,
-    ) -> TestResult {
+    pub fn run_test(&self, test_case: &SkillTestCase, host_config: MockHostConfig) -> TestResult {
         let start = Instant::now();
 
         let run_result = self.execute_test(test_case, host_config);
@@ -281,19 +280,12 @@ impl TestRunner {
         }
 
         // Call the skill entry point
-        let skill_fn = instance.get_typed_func::<(i32, i32, i32, i32), i32>(
-            &mut store,
-            "__openzax_skill_call",
-        )?;
+        let skill_fn = instance
+            .get_typed_func::<(i32, i32, i32, i32), i32>(&mut store, "__openzax_skill_call")?;
 
         let written = skill_fn.call(
             &mut store,
-            (
-                input_ptr,
-                input_bytes.len() as i32,
-                output_ptr,
-                output_cap,
-            ),
+            (input_ptr, input_bytes.len() as i32, output_ptr, output_cap),
         )?;
 
         if written < 0 {
@@ -375,7 +367,7 @@ pub fn json_deep_eq(a: &serde_json::Value, b: &serde_json::Value) -> bool {
             a_map.len() == b_map.len()
                 && a_map
                     .iter()
-                    .all(|(k, v)| b_map.get(k).map_or(false, |bv| json_deep_eq(v, bv)))
+                    .all(|(k, v)| b_map.get(k).is_some_and(|bv| json_deep_eq(v, bv)))
         }
         _ => false,
     }

@@ -72,7 +72,9 @@ impl std::str::FromStr for SkillCategory {
             "automation" => Ok(Self::Automation),
             "integration" => Ok(Self::Integration),
             "utilities" => Ok(Self::Utilities),
-            other => Err(crate::error::MarketplaceError::InvalidCategory(other.to_string())),
+            other => Err(crate::error::MarketplaceError::InvalidCategory(
+                other.to_string(),
+            )),
         }
     }
 }
@@ -106,7 +108,9 @@ impl ReviewStatus {
 
     pub fn from_db_str(s: &str) -> Self {
         if let Some(reason) = s.strip_prefix("rejected:") {
-            return Self::Rejected { reason: reason.to_string() };
+            return Self::Rejected {
+                reason: reason.to_string(),
+            };
         }
         match s {
             "pending" => Self::Pending,
@@ -283,6 +287,12 @@ pub struct PaginatedResponse<T> {
 impl<T> PaginatedResponse<T> {
     pub fn new(items: Vec<T>, total: u64, page: u32, per_page: u32) -> Self {
         let total_pages = ((total as f64) / per_page as f64).ceil() as u32;
-        Self { items, total, page, per_page, total_pages }
+        Self {
+            items,
+            total,
+            page,
+            per_page,
+            total_pages,
+        }
     }
 }

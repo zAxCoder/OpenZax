@@ -115,17 +115,23 @@ impl WorkflowExecutor {
     }
 
     /// Execute a workflow triggered by a TriggerEvent
-    pub async fn execute_workflow(&self, trigger_event: TriggerEvent) -> ExecResult<ExecutionResult> {
+    pub async fn execute_workflow(
+        &self,
+        trigger_event: TriggerEvent,
+    ) -> ExecResult<ExecutionResult> {
         let workflow_id = trigger_event.workflow_id;
         let start = Instant::now();
 
-        info!("Starting execution of workflow {workflow_id} (trigger: {})",
-              trigger_event.trigger_config.kind_name());
+        info!(
+            "Starting execution of workflow {workflow_id} (trigger: {})",
+            trigger_event.trigger_config.kind_name()
+        );
 
         // Load workflow from registry
         let workflow = {
             let reg = self.registry.read().await;
-            reg.get(workflow_id)?.ok_or(ExecutionError::WorkflowNotFound(workflow_id))?
+            reg.get(workflow_id)?
+                .ok_or(ExecutionError::WorkflowNotFound(workflow_id))?
         };
 
         // Build and validate the DAG
@@ -153,7 +159,10 @@ impl WorkflowExecutor {
                 let http_client = self.http_client.clone();
                 let registry = self.registry.clone();
                 handles.push(tokio::spawn(async move {
-                    (node_id, execute_node_with_retry(&node, input, &http_client, &registry).await)
+                    (
+                        node_id,
+                        execute_node_with_retry(&node, input, &http_client, &registry).await,
+                    )
                 }));
             }
 
@@ -211,9 +220,7 @@ async fn execute_node_with_retry(
     let strategy = extract_error_strategy(node);
 
     match strategy {
-        ErrorStrategy::StopOnError => {
-            execute_node(node, input, http_client, registry).await
-        }
+        ErrorStrategy::StopOnError => execute_node(node, input, http_client, registry).await,
         ErrorStrategy::SkipAndContinue => {
             match execute_node(node, input, http_client, registry).await {
                 Ok(v) => Ok(v),
@@ -223,12 +230,18 @@ async fn execute_node_with_retry(
                 }
             }
         }
-        ErrorStrategy::RetryWithBackoff { max_retries, base_delay_ms } => {
+        ErrorStrategy::RetryWithBackoff {
+            max_retries,
+            base_delay_ms,
+        } => {
             let mut last_err = None;
             for attempt in 0..=max_retries {
                 if attempt > 0 {
                     let delay = base_delay_ms * 2u64.pow(attempt - 1);
-                    debug!("Retry {attempt}/{max_retries} for node {} after {delay}ms", node.id);
+                    debug!(
+                        "Retry {attempt}/{max_retries} for node {} after {delay}ms",
+                        node.id
+                    );
                     tokio::time::sleep(Duration::from_millis(delay)).await;
                 }
                 match execute_node(node, input.clone(), http_client, registry).await {
@@ -246,7 +259,8 @@ fn extract_error_strategy(node: &WorkflowNode) -> ErrorStrategy {
         return strategy.clone();
     }
     // Default from config
-    node.config.get("error_strategy")
+    node.config
+        .get("error_strategy")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or(ErrorStrategy::StopOnError)
 }
@@ -305,9 +319,10 @@ pub async fn execute_node(
             // Load and execute sub-workflow
             let sub_workflow = {
                 let reg = registry.read().await;
-                reg.get(*workflow_id)?.ok_or(ExecutionError::SubWorkflowError(
-                    format!("sub-workflow {workflow_id} not found"),
-                ))?
+                reg.get(*workflow_id)?
+                    .ok_or(ExecutionError::SubWorkflowError(format!(
+                        "sub-workflow {workflow_id} not found"
+                    )))?
             };
 
             debug!("Executing sub-workflow: {}", sub_workflow.name);
@@ -326,14 +341,18 @@ pub async fn execute_node(
                 "PUT" => http_client.put(url).json(&input).send().await,
                 "PATCH" => http_client.patch(url).json(&input).send().await,
                 "DELETE" => http_client.delete(url).send().await,
-                m => return Err(ExecutionError::HttpError(format!("unsupported method: {m}"))),
+                m => {
+                    return Err(ExecutionError::HttpError(format!(
+                        "unsupported method: {m}"
+                    )))
+                }
             };
 
             match response {
                 Ok(resp) => {
                     let status = resp.status().as_u16();
-                    let body: serde_json::Value = resp.json().await
-                        .unwrap_or(serde_json::Value::Null);
+                    let body: serde_json::Value =
+                        resp.json().await.unwrap_or(serde_json::Value::Null);
                     Ok(serde_json::json!({ "status": status, "body": body }))
                 }
                 Err(e) => Err(ExecutionError::HttpError(e.to_string())),

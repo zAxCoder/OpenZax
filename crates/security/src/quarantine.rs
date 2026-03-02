@@ -15,7 +15,9 @@ pub enum Error {
     NotQuarantined(String),
     #[error("skill '{0}' is already quarantined")]
     AlreadyQuarantined(String),
-    #[error("skill '{0}' is whitelisted and cannot be quarantined without removing the whitelist first")]
+    #[error(
+        "skill '{0}' is whitelisted and cannot be quarantined without removing the whitelist first"
+    )]
     Whitelisted(String),
     #[error("serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
@@ -128,9 +130,7 @@ impl QuarantineManager {
             QuarantineState::Quarantined { .. } => {
                 return Err(Error::AlreadyQuarantined(skill_id.to_owned()))
             }
-            QuarantineState::Whitelisted => {
-                return Err(Error::Whitelisted(skill_id.to_owned()))
-            }
+            QuarantineState::Whitelisted => return Err(Error::Whitelisted(skill_id.to_owned())),
             QuarantineState::Active => {}
         }
 
@@ -153,11 +153,7 @@ impl QuarantineManager {
     }
 
     /// Lifts the quarantine on a skill, returning it to `Active` state.
-    pub fn lift_quarantine(
-        &self,
-        skill_id: &str,
-        reviewer_notes: Option<String>,
-    ) -> Result<()> {
+    pub fn lift_quarantine(&self, skill_id: &str, reviewer_notes: Option<String>) -> Result<()> {
         let current = self.get_status(skill_id)?;
         if !matches!(current, QuarantineState::Quarantined { .. }) {
             return Err(Error::NotQuarantined(skill_id.to_owned()));
@@ -207,12 +203,11 @@ impl QuarantineManager {
     /// If the skill has no record, it is considered `Active`.
     pub fn get_status(&self, skill_id: &str) -> Result<QuarantineState> {
         let conn = self.conn.lock().unwrap();
-        let result: rusqlite::Result<(String, Option<String>, Option<String>)> =
-            conn.query_row(
-                "SELECT state_kind, reason, quarantined_at FROM quarantine WHERE skill_id = ?1",
-                params![skill_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            );
+        let result: rusqlite::Result<(String, Option<String>, Option<String>)> = conn.query_row(
+            "SELECT state_kind, reason, quarantined_at FROM quarantine WHERE skill_id = ?1",
+            params![skill_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        );
 
         match result {
             Ok((kind, reason, quarantined_at)) => match kind.as_str() {

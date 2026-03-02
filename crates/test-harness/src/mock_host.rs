@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Configuration for a MockHost instance
 #[derive(Debug, Clone, Default)]
@@ -202,7 +202,7 @@ impl MockHost {
             .mock_http_responses
             .get(url)
             .cloned()
-            .unwrap_or_else(|| MockHttpResponse::not_found());
+            .unwrap_or_else(MockHttpResponse::not_found);
 
         self.call_log.push(HostCallRecord {
             function_name: "__openzax_http_fetch".to_string(),
@@ -295,9 +295,7 @@ fn now_rfc3339() -> String {
 ///   - Strings are passed as (ptr: i32, len: i32) referencing WASM linear memory
 ///   - Output strings are written to a caller-allocated buffer at (out_ptr: i32)
 ///   - Return value is the written byte count, or -1 on miss / error
-pub fn register_host_functions(
-    linker: &mut wasmtime::Linker<MockHost>,
-) -> anyhow::Result<()> {
+pub fn register_host_functions(linker: &mut wasmtime::Linker<MockHost>) -> anyhow::Result<()> {
     // __openzax_log(level: i32, msg_ptr: i32, msg_len: i32)
     linker.func_wrap(
         "env",
@@ -316,7 +314,8 @@ pub fn register_host_functions(
          key_ptr: i32,
          key_len: i32,
          out_ptr: i32,
-         out_cap: i32| -> i32 {
+         out_cap: i32|
+         -> i32 {
             let key = read_wasm_string(&mut caller, key_ptr, key_len).unwrap_or_default();
             let value = caller.data_mut().host_config_get(&key);
             match value {
@@ -353,7 +352,8 @@ pub fn register_host_functions(
          path_ptr: i32,
          path_len: i32,
          out_ptr: i32,
-         out_cap: i32| -> i32 {
+         out_cap: i32|
+         -> i32 {
             let path = read_wasm_string(&mut caller, path_ptr, path_len).unwrap_or_default();
             let data_opt = caller.data_mut().host_read_file(&path);
             match data_opt {
@@ -374,10 +374,15 @@ pub fn register_host_functions(
          path_ptr: i32,
          path_len: i32,
          data_ptr: i32,
-         data_len: i32| -> i32 {
+         data_len: i32|
+         -> i32 {
             let path = read_wasm_string(&mut caller, path_ptr, path_len).unwrap_or_default();
             let data = read_wasm_bytes(&mut caller, data_ptr, data_len).unwrap_or_default();
-            if caller.data_mut().host_write_file(path, data) { 0 } else { -1 }
+            if caller.data_mut().host_write_file(path, data) {
+                0
+            } else {
+                -1
+            }
         },
     )?;
 
@@ -396,12 +401,16 @@ pub fn register_host_functions(
          body_ptr: i32,
          body_len: i32,
          out_ptr: i32,
-         out_cap: i32| -> i32 {
+         out_cap: i32|
+         -> i32 {
             let url = read_wasm_string(&mut caller, url_ptr, url_len).unwrap_or_default();
             let method = read_wasm_string(&mut caller, method_ptr, method_len).unwrap_or_default();
-            let headers = read_wasm_string(&mut caller, headers_ptr, headers_len).unwrap_or_default();
+            let headers =
+                read_wasm_string(&mut caller, headers_ptr, headers_len).unwrap_or_default();
             let body = read_wasm_bytes(&mut caller, body_ptr, body_len).unwrap_or_default();
-            let response = caller.data_mut().host_http_fetch(&url, &method, &headers, &body);
+            let response = caller
+                .data_mut()
+                .host_http_fetch(&url, &method, &headers, &body);
 
             let response_json = serde_json::json!({
                 "status": response.status,
@@ -422,7 +431,8 @@ pub fn register_host_functions(
          key_ptr: i32,
          key_len: i32,
          out_ptr: i32,
-         out_cap: i32| -> i32 {
+         out_cap: i32|
+         -> i32 {
             let key = read_wasm_string(&mut caller, key_ptr, key_len).unwrap_or_default();
             let value = caller.data_mut().host_kv_get(&key);
             match value {
@@ -481,22 +491,17 @@ pub fn register_host_functions(
 
 // ── WASM memory helpers ───────────────────────────────────────────────────────
 
-fn read_wasm_string(
-    caller: &mut wasmtime::Caller<MockHost>,
-    ptr: i32,
-    len: i32,
-) -> Option<String> {
+fn read_wasm_string(caller: &mut wasmtime::Caller<MockHost>, ptr: i32, len: i32) -> Option<String> {
     let mem = caller.get_export("memory").and_then(|e| e.into_memory())?;
     // Read into owned Vec immediately to release the borrow
-    let owned: Vec<u8> = mem.data(&*caller).get(ptr as usize..(ptr + len) as usize)?.to_vec();
+    let owned: Vec<u8> = mem
+        .data(&*caller)
+        .get(ptr as usize..(ptr + len) as usize)?
+        .to_vec();
     String::from_utf8(owned).ok()
 }
 
-fn read_wasm_bytes(
-    caller: &mut wasmtime::Caller<MockHost>,
-    ptr: i32,
-    len: i32,
-) -> Option<Vec<u8>> {
+fn read_wasm_bytes(caller: &mut wasmtime::Caller<MockHost>, ptr: i32, len: i32) -> Option<Vec<u8>> {
     let mem = caller.get_export("memory").and_then(|e| e.into_memory())?;
     mem.data(&*caller)
         .get(ptr as usize..(ptr + len) as usize)

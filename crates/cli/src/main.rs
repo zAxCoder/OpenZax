@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[cfg(feature = "llm-engine")]
@@ -149,14 +149,10 @@ enum SkillCommands {
     },
 
     /// Inspect a .ozskill package (manifest, permissions, WASM info)
-    Inspect {
-        path: PathBuf,
-    },
+    Inspect { path: PathBuf },
 
     /// Validate a .ozskill package structure
-    Validate {
-        path: PathBuf,
-    },
+    Validate { path: PathBuf },
 }
 
 #[derive(Subcommand)]
@@ -221,9 +217,11 @@ fn load_api_key_from_config() -> Option<String> {
     let content = std::fs::read_to_string(config).ok()?;
     for line in content.lines() {
         if line.trim_start().starts_with("api_key") {
-            if let Some(val) = line.splitn(2, '=').nth(1) {
+            if let Some(val) = line.split_once('=').map(|x| x.1) {
                 let key = val.trim().trim_matches('"').trim_matches('\'').to_string();
-                if !key.is_empty() { return Some(key); }
+                if !key.is_empty() {
+                    return Some(key);
+                }
             }
         }
     }
@@ -243,7 +241,9 @@ async fn check_for_update() -> Option<String> {
         .await
         .ok()?;
 
-    if !resp.status().is_success() { return None; }
+    if !resp.status().is_success() {
+        return None;
+    }
     let json: serde_json::Value = resp.json().await.ok()?;
     let tag = json["tag_name"].as_str()?;
     let current = format!("v{}", env!("CARGO_PKG_VERSION"));
@@ -274,7 +274,11 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     match cli.command {
-        Some(Commands::Shell { api_key, model, db_path }) => {
+        Some(Commands::Shell {
+            api_key,
+            model,
+            db_path,
+        }) => {
             let resolved_key = api_key
                 .or_else(|| std::env::var("OPENZAX_API_KEY").ok())
                 .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
@@ -312,11 +316,18 @@ async fn main() -> anyhow::Result<()> {
             ui::print_banner();
             handle_whoami()?;
         }
-        Some(Commands::Search { query, category, limit }) => {
+        Some(Commands::Search {
+            query,
+            category,
+            limit,
+        }) => {
             ui::print_banner();
             handle_search(query, category, limit).await?;
         }
-        Some(Commands::Install { skill_name, version }) => {
+        Some(Commands::Install {
+            skill_name,
+            version,
+        }) => {
             ui::print_banner();
             handle_install(skill_name, version).await?;
         }
@@ -343,7 +354,8 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
         None => {
-            let api_key = std::env::var("OPENZAX_API_KEY").ok()
+            let api_key = std::env::var("OPENZAX_API_KEY")
+                .ok()
                 .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
                 .or_else(load_api_key_from_config);
             let model = "deepseek/deepseek-r1-0528:free".to_string();
@@ -399,8 +411,16 @@ fn handle_keygen(output: PathBuf) -> anyhow::Result<()> {
     std::fs::write(&public_path, &public_b64)?;
 
     println!("  {} Generated Ed25519 keypair", "✓".green().bold());
-    println!("  {} Private key : {}", "→".bright_cyan(), private_path.display());
-    println!("  {} Public key  : {}", "→".bright_cyan(), public_path.display());
+    println!(
+        "  {} Private key : {}",
+        "→".bright_cyan(),
+        private_path.display()
+    );
+    println!(
+        "  {} Public key  : {}",
+        "→".bright_cyan(),
+        public_path.display()
+    );
     println!("  {} Fingerprint : {}", "◆".bright_yellow(), fingerprint);
     println!();
     println!(
@@ -452,7 +472,11 @@ fn handle_whoami() -> anyhow::Result<()> {
         } else {
             "****".to_string()
         };
-        println!("  {} Token   : {}", "✓".green().bold(), masked.bright_cyan());
+        println!(
+            "  {} Token   : {}",
+            "✓".green().bold(),
+            masked.bright_cyan()
+        );
     }
     if let Some(created) = auth.get("created_at").and_then(|v| v.as_str()) {
         println!("  {} Since   : {}", "◆".bright_cyan(), created);
@@ -463,11 +487,7 @@ fn handle_whoami() -> anyhow::Result<()> {
 
 // ── search ────────────────────────────────────────────────────────────────────
 
-async fn handle_search(
-    query: String,
-    category: Option<String>,
-    limit: u32,
-) -> anyhow::Result<()> {
+async fn handle_search(query: String, category: Option<String>, limit: u32) -> anyhow::Result<()> {
     println!(
         "  {} Searching marketplace for {}...",
         "→".bright_cyan(),
@@ -492,7 +512,10 @@ async fn handle_search(
     match client.get(&url).send().await {
         Ok(response) if response.status().is_success() => {
             let data: serde_json::Value = response.json().await?;
-            let items = data["results"].as_array().map(|a| a.as_slice()).unwrap_or(&[]);
+            let items = data["results"]
+                .as_array()
+                .map(|a| a.as_slice())
+                .unwrap_or(&[]);
             if items.is_empty() {
                 println!("  {} No results found for '{}'", "◆".bright_yellow(), query);
             } else {
@@ -603,9 +626,9 @@ async fn handle_install(skill_name: String, version: Option<String>) -> anyhow::
         let hash = hasher.finalize();
 
         use ed25519_dalek::Verifier;
-        verifying_key
-            .verify(&hash, &signature)
-            .map_err(|_| anyhow::anyhow!("Signature verification failed – package may be tampered"))?;
+        verifying_key.verify(&hash, &signature).map_err(|_| {
+            anyhow::anyhow!("Signature verification failed – package may be tampered")
+        })?;
 
         println!("  {} Signature verified", "✓".green().bold());
     } else {
@@ -636,24 +659,29 @@ async fn handle_doctor() -> anyhow::Result<()> {
     println!("  Running system health checks...\n");
 
     // 1. Rust / cargo
-    let cargo_out = std::process::Command::new("cargo").arg("--version").output();
+    let cargo_out = std::process::Command::new("cargo")
+        .arg("--version")
+        .output();
     let (cargo_ok, cargo_msg) = match cargo_out {
-        Ok(o) if o.status.success() => (
-            true,
-            String::from_utf8_lossy(&o.stdout).trim().to_string(),
-        ),
+        Ok(o) if o.status.success() => {
+            (true, String::from_utf8_lossy(&o.stdout).trim().to_string())
+        }
         _ => (false, "cargo not found".to_string()),
     };
     print_doctor_check("Rust / Cargo", cargo_ok, &cargo_msg);
 
     // 2. wasmtime binary
-    let wt_out = std::process::Command::new("wasmtime").arg("--version").output();
+    let wt_out = std::process::Command::new("wasmtime")
+        .arg("--version")
+        .output();
     let (wt_ok, wt_msg) = match wt_out {
-        Ok(o) if o.status.success() => (
-            true,
-            String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        Ok(o) if o.status.success() => {
+            (true, String::from_utf8_lossy(&o.stdout).trim().to_string())
+        }
+        _ => (
+            false,
+            "wasmtime not found (optional – needed to run WASM skills)".to_string(),
         ),
-        _ => (false, "wasmtime not found (optional – needed to run WASM skills)".to_string()),
     };
     print_doctor_check("wasmtime CLI", wt_ok, &wt_msg);
 
@@ -661,22 +689,26 @@ async fn handle_doctor() -> anyhow::Result<()> {
     let config_dir_res = openzax_config_dir();
     match &config_dir_res {
         Ok(dir) => {
-            print_doctor_check(
-                "~/.openzax directory",
-                true,
-                &dir.display().to_string(),
-            );
+            print_doctor_check("~/.openzax directory", true, &dir.display().to_string());
             let skills_dir = dir.join("skills");
             let models_dir = dir.join("models");
             print_doctor_check(
                 "  skills/",
                 skills_dir.exists(),
-                if skills_dir.exists() { "exists" } else { "missing (will be created on first install)" },
+                if skills_dir.exists() {
+                    "exists"
+                } else {
+                    "missing (will be created on first install)"
+                },
             );
             print_doctor_check(
                 "  models/",
                 models_dir.exists(),
-                if models_dir.exists() { "exists" } else { "missing (optional)" },
+                if models_dir.exists() {
+                    "exists"
+                } else {
+                    "missing (optional)"
+                },
             );
             let db_path = dir.join("openzax.db");
             let db_accessible = if db_path.exists() {
@@ -690,7 +722,11 @@ async fn handle_doctor() -> anyhow::Result<()> {
             print_doctor_check(
                 "Database file",
                 db_accessible,
-                if db_path.exists() { "accessible" } else { "not yet created" },
+                if db_path.exists() {
+                    "accessible"
+                } else {
+                    "not yet created"
+                },
             );
         }
         Err(_) => {
@@ -717,7 +753,11 @@ async fn handle_doctor() -> anyhow::Result<()> {
 }
 
 fn print_doctor_check(label: &str, ok: bool, detail: &str) {
-    let symbol = if ok { "✓".green().bold() } else { "✗".red().bold() };
+    let symbol = if ok {
+        "✓".green().bold()
+    } else {
+        "✗".red().bold()
+    };
     let detail_colored = if ok {
         detail.dimmed().to_string()
     } else {
@@ -750,7 +790,13 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
             let data: serde_json::Value = r.json().await?;
             let latest = data["tag_name"].as_str().unwrap_or("unknown");
             let current = env!("CARGO_PKG_VERSION");
-            let body = data["body"].as_str().unwrap_or("").lines().take(8).collect::<Vec<_>>().join("\n");
+            let body = data["body"]
+                .as_str()
+                .unwrap_or("")
+                .lines()
+                .take(8)
+                .collect::<Vec<_>>()
+                .join("\n");
 
             println!(
                 "  {} Current version : {}",
@@ -767,7 +813,10 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
             if latest == format!("v{}", current) || latest == current {
                 println!("  {} You are on the latest version!", "✓".green().bold());
             } else {
-                println!("  {} A newer version is available!", "★".bright_yellow().bold());
+                println!(
+                    "  {} A newer version is available!",
+                    "★".bright_yellow().bold()
+                );
                 println!();
                 if !body.is_empty() {
                     println!("  Release notes:");
@@ -779,7 +828,8 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
                 println!("  To upgrade:");
                 println!(
                     "    {}",
-                    "cargo install --git https://github.com/openzax/openzax openzax-cli".bright_cyan()
+                    "cargo install --git https://github.com/openzax/openzax openzax-cli"
+                        .bright_cyan()
                 );
                 println!();
                 println!("  Or via the installer:");
@@ -807,7 +857,11 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
 
 async fn handle_skill_command(cmd: SkillCommands) -> anyhow::Result<()> {
     match cmd {
-        SkillCommands::Init { name, language, output } => {
+        SkillCommands::Init {
+            name,
+            language,
+            output,
+        } => {
             let output_dir = output.unwrap_or_else(|| PathBuf::from(&name));
             ui::print_info(&format!("Creating new {} skill: {}", language, name));
             println!();
@@ -884,15 +938,19 @@ async fn handle_skill_command(cmd: SkillCommands) -> anyhow::Result<()> {
         }
 
         SkillCommands::Pack { path, output } => {
-            skill_pack(&path, output.as_ref().map(|p| p.as_path()))?;
+            skill_pack(&path, output.as_deref())?;
         }
 
         SkillCommands::Sign { package, key } => {
             skill_sign(&package, &key)?;
         }
 
-        SkillCommands::Publish { package, key, marketplace } => {
-            skill_publish(&package, key.as_ref().map(|p| p.as_path()), &marketplace).await?;
+        SkillCommands::Publish {
+            package,
+            key,
+            marketplace,
+        } => {
+            skill_publish(&package, key.as_deref(), &marketplace).await?;
         }
 
         SkillCommands::Inspect { path } => {
@@ -909,7 +967,7 @@ async fn handle_skill_command(cmd: SkillCommands) -> anyhow::Result<()> {
 
 // ── skill helpers ─────────────────────────────────────────────────────────────
 
-fn skill_pack(path: &PathBuf, output: Option<&std::path::Path>) -> anyhow::Result<()> {
+fn skill_pack(path: &Path, output: Option<&Path>) -> anyhow::Result<()> {
     use std::io::Write;
     use zip::write::{SimpleFileOptions, ZipWriter};
 
@@ -932,8 +990,10 @@ fn skill_pack(path: &PathBuf, output: Option<&std::path::Path>) -> anyhow::Resul
 
     // Find .wasm file
     let wasm_candidates = [
-        path.join("target/wasm32-wasip1/release").join(format!("{}.wasm", skill_name.replace('-', "_"))),
-        path.join("target/wasm32-wasip1/debug").join(format!("{}.wasm", skill_name.replace('-', "_"))),
+        path.join("target/wasm32-wasip1/release")
+            .join(format!("{}.wasm", skill_name.replace('-', "_"))),
+        path.join("target/wasm32-wasip1/debug")
+            .join(format!("{}.wasm", skill_name.replace('-', "_"))),
         path.join(format!("{}.wasm", skill_name.replace('-', "_"))),
     ];
 
@@ -954,8 +1014,7 @@ fn skill_pack(path: &PathBuf, output: Option<&std::path::Path>) -> anyhow::Resul
 
     let file = std::fs::File::create(&out_path)?;
     let mut zip = ZipWriter::new(file);
-    let options = SimpleFileOptions::default()
-        .compression_method(zip::CompressionMethod::Deflated);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
     zip.start_file("manifest.json", options)?;
     zip.write_all(&manifest_data)?;
@@ -965,11 +1024,7 @@ fn skill_pack(path: &PathBuf, output: Option<&std::path::Path>) -> anyhow::Resul
 
     zip.finish()?;
 
-    println!(
-        "  {} Packed to {}",
-        "✓".green().bold(),
-        out_path.display()
-    );
+    println!("  {} Packed to {}", "✓".green().bold(), out_path.display());
     println!(
         "  {} Size: {} bytes",
         "◆".bright_cyan(),
@@ -1020,7 +1075,11 @@ fn skill_sign(package: &PathBuf, key_path: &PathBuf) -> anyhow::Result<()> {
     };
     std::fs::write(&sig_path, serde_json::to_string_pretty(&sig_doc)?)?;
 
-    println!("  {} Signature written to {}", "✓".green().bold(), sig_path.display());
+    println!(
+        "  {} Signature written to {}",
+        "✓".green().bold(),
+        sig_path.display()
+    );
     println!("  {} Public key: {}", "◆".bright_cyan(), pub_b64.dimmed());
     println!();
 
@@ -1054,14 +1113,17 @@ async fn skill_publish(
     if !auth_path.exists() {
         anyhow::bail!("Not logged in. Run 'openzax login --token <token>' first.");
     }
-    let auth: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&auth_path)?)?;
+    let auth: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&auth_path)?)?;
     let token = auth["token"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Invalid auth token"))?
         .to_string();
 
-    println!("  {} Uploading package ({} bytes)...", "→".bright_cyan(), package_data.len());
+    println!(
+        "  {} Uploading package ({} bytes)...",
+        "→".bright_cyan(),
+        package_data.len()
+    );
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
@@ -1136,15 +1198,38 @@ fn skill_inspect(path: &PathBuf) -> anyhow::Result<()> {
     let manifest: serde_json::Value = serde_json::from_slice(&manifest_data)?;
 
     println!("  {} Manifest", "◆".bright_cyan().bold());
-    println!("    Name        : {}", manifest["name"].as_str().unwrap_or("?").bright_white().bold());
-    println!("    Version     : {}", manifest["version"].as_str().unwrap_or("?").bright_yellow());
-    println!("    Description : {}", manifest["description"].as_str().unwrap_or("").dimmed());
-    println!("    Author      : {}", manifest["author"].as_str().unwrap_or("?"));
-    println!("    License     : {}", manifest["license"].as_str().unwrap_or("?"));
+    println!(
+        "    Name        : {}",
+        manifest["name"]
+            .as_str()
+            .unwrap_or("?")
+            .bright_white()
+            .bold()
+    );
+    println!(
+        "    Version     : {}",
+        manifest["version"].as_str().unwrap_or("?").bright_yellow()
+    );
+    println!(
+        "    Description : {}",
+        manifest["description"].as_str().unwrap_or("").dimmed()
+    );
+    println!(
+        "    Author      : {}",
+        manifest["author"].as_str().unwrap_or("?")
+    );
+    println!(
+        "    License     : {}",
+        manifest["license"].as_str().unwrap_or("?")
+    );
     println!();
 
     if let Some(perms) = manifest["permissions"].as_array() {
-        println!("  {} Permissions ({})", "◆".bright_cyan().bold(), perms.len());
+        println!(
+            "  {} Permissions ({})",
+            "◆".bright_cyan().bold(),
+            perms.len()
+        );
         for p in perms {
             let perm = p.as_str().unwrap_or("?");
             let icon = if perm.starts_with("net:") || perm.starts_with("http:") {
@@ -1165,11 +1250,16 @@ fn skill_inspect(path: &PathBuf) -> anyhow::Result<()> {
         wasm_entry.read_to_end(&mut wasm_data)?;
 
         println!("  {} WASM Module", "◆".bright_cyan().bold());
-        println!("    Size        : {} bytes ({:.1} KB)", wasm_data.len(), wasm_data.len() as f64 / 1024.0);
+        println!(
+            "    Size        : {} bytes ({:.1} KB)",
+            wasm_data.len(),
+            wasm_data.len() as f64 / 1024.0
+        );
 
         // Check magic bytes
         if wasm_data.starts_with(b"\0asm") {
-            let version = u32::from_le_bytes([wasm_data[4], wasm_data[5], wasm_data[6], wasm_data[7]]);
+            let version =
+                u32::from_le_bytes([wasm_data[4], wasm_data[5], wasm_data[6], wasm_data[7]]);
             println!("    WASM version: {}", version);
             println!("    {} Valid WASM module", "✓".green());
         } else {
@@ -1181,7 +1271,11 @@ fn skill_inspect(path: &PathBuf) -> anyhow::Result<()> {
     let file_count = archive.len();
     if file_count > 2 {
         println!();
-        println!("  {} Additional files ({})", "◆".bright_cyan().bold(), file_count - 2);
+        println!(
+            "  {} Additional files ({})",
+            "◆".bright_cyan().bold(),
+            file_count - 2
+        );
         for i in 0..file_count {
             let entry = archive.by_index(i)?;
             let name = entry.name().to_string();
@@ -1231,12 +1325,19 @@ fn skill_validate(path: &PathBuf) -> anyhow::Result<()> {
         match serde_json::from_slice::<serde_json::Value>(&data) {
             Ok(manifest) => {
                 for field in &["name", "version", "description", "author"] {
-                    if manifest[field].as_str().map(|s| s.is_empty()).unwrap_or(true) {
+                    if manifest[field]
+                        .as_str()
+                        .map(|s| s.is_empty())
+                        .unwrap_or(true)
+                    {
                         errors.push(format!("manifest.json missing required field: {}", field));
                     }
                 }
                 if manifest["permissions"].as_array().is_none() {
-                    warnings.push("manifest.json: 'permissions' field missing (defaulting to empty)".to_string());
+                    warnings.push(
+                        "manifest.json: 'permissions' field missing (defaulting to empty)"
+                            .to_string(),
+                    );
                 }
             }
             Err(e) => {
@@ -1252,10 +1353,8 @@ fn skill_validate(path: &PathBuf) -> anyhow::Result<()> {
     } else {
         let mut wasm_entry = archive.by_name("skill.wasm").unwrap();
         let mut magic = [0u8; 8];
-        if wasm_entry.read_exact(&mut magic).is_ok() {
-            if !magic.starts_with(b"\0asm") {
-                errors.push("skill.wasm has invalid WASM magic bytes".to_string());
-            }
+        if wasm_entry.read_exact(&mut magic).is_ok() && !magic.starts_with(b"\0asm") {
+            errors.push("skill.wasm has invalid WASM magic bytes".to_string());
         }
         if wasm_entry.size() < 8 {
             errors.push("skill.wasm is too small to be a valid WASM module".to_string());
@@ -1273,11 +1372,7 @@ fn skill_validate(path: &PathBuf) -> anyhow::Result<()> {
     if errors.is_empty() {
         println!("  {} Package is valid!", "✓".green().bold());
         if !warnings.is_empty() {
-            println!(
-                "  {} {} warning(s)",
-                "⚠".bright_yellow(),
-                warnings.len()
-            );
+            println!("  {} {} warning(s)", "⚠".bright_yellow(), warnings.len());
         }
     } else {
         println!();
@@ -1479,11 +1574,15 @@ async fn mcp_inspect(server: String) -> anyhow::Result<()> {
                 "clientInfo": { "name": "openzax-cli", "version": env!("CARGO_PKG_VERSION") }
             }
         });
-        stdin.write_all(format!("{}\n", serde_json::to_string(&init)?).as_bytes()).await?;
+        stdin
+            .write_all(format!("{}\n", serde_json::to_string(&init)?).as_bytes())
+            .await?;
 
         // Wait for initialize response
         while let Some(line) = reader.next_line().await? {
-            if line.trim().is_empty() { continue; }
+            if line.trim().is_empty() {
+                continue;
+            }
             let resp: serde_json::Value = serde_json::from_str(&line)?;
             if resp["id"].as_u64() == Some(1) {
                 if let Some(info) = resp["result"]["serverInfo"].as_object() {
@@ -1496,7 +1595,11 @@ async fn mcp_inspect(server: String) -> anyhow::Result<()> {
                 }
                 if let Some(caps) = resp["result"]["capabilities"].as_object() {
                     let cap_list: Vec<&str> = caps.keys().map(|k| k.as_str()).collect();
-                    println!("  {} Capabilities: {}", "◆".bright_cyan(), cap_list.join(", ").bright_yellow());
+                    println!(
+                        "  {} Capabilities: {}",
+                        "◆".bright_cyan(),
+                        cap_list.join(", ").bright_yellow()
+                    );
                 }
                 println!();
                 break;
@@ -1507,16 +1610,22 @@ async fn mcp_inspect(server: String) -> anyhow::Result<()> {
         let notif = serde_json::json!({
             "jsonrpc": "2.0", "method": "notifications/initialized"
         });
-        stdin.write_all(format!("{}\n", serde_json::to_string(&notif)?).as_bytes()).await?;
+        stdin
+            .write_all(format!("{}\n", serde_json::to_string(&notif)?).as_bytes())
+            .await?;
 
         // Request tools/list
         let tools_req = serde_json::json!({
             "jsonrpc": "2.0", "id": 2, "method": "tools/list"
         });
-        stdin.write_all(format!("{}\n", serde_json::to_string(&tools_req)?).as_bytes()).await?;
+        stdin
+            .write_all(format!("{}\n", serde_json::to_string(&tools_req)?).as_bytes())
+            .await?;
 
         while let Some(line) = reader.next_line().await? {
-            if line.trim().is_empty() { continue; }
+            if line.trim().is_empty() {
+                continue;
+            }
             let resp: serde_json::Value = serde_json::from_str(&line)?;
             if resp["id"].as_u64() == Some(2) {
                 if let Some(tools) = resp["result"]["tools"].as_array() {
@@ -1539,14 +1648,22 @@ async fn mcp_inspect(server: String) -> anyhow::Result<()> {
         let res_req = serde_json::json!({
             "jsonrpc": "2.0", "id": 3, "method": "resources/list"
         });
-        stdin.write_all(format!("{}\n", serde_json::to_string(&res_req)?).as_bytes()).await?;
+        stdin
+            .write_all(format!("{}\n", serde_json::to_string(&res_req)?).as_bytes())
+            .await?;
 
         while let Some(line) = reader.next_line().await? {
-            if line.trim().is_empty() { continue; }
+            if line.trim().is_empty() {
+                continue;
+            }
             let resp: serde_json::Value = serde_json::from_str(&line)?;
             if resp["id"].as_u64() == Some(3) {
                 if let Some(resources) = resp["result"]["resources"].as_array() {
-                    println!("  {} Resources ({}):", "◆".bright_cyan().bold(), resources.len());
+                    println!(
+                        "  {} Resources ({}):",
+                        "◆".bright_cyan().bold(),
+                        resources.len()
+                    );
                     for r in resources {
                         println!(
                             "    {} {}  [{}]",
@@ -1571,7 +1688,10 @@ async fn mcp_inspect(server: String) -> anyhow::Result<()> {
         Ok(Ok(())) => {}
         Ok(Err(e)) => anyhow::bail!("MCP communication error: {}", e),
         Err(_) => {
-            println!("  {} Timed out waiting for server response", "⚠".bright_yellow().bold());
+            println!(
+                "  {} Timed out waiting for server response",
+                "⚠".bright_yellow().bold()
+            );
         }
     }
 
@@ -1579,19 +1699,15 @@ async fn mcp_inspect(server: String) -> anyhow::Result<()> {
 }
 
 async fn mcp_record(server: String, output: PathBuf) -> anyhow::Result<()> {
-    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use std::io::Write;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
     println!(
         "  {} Recording MCP session: {}",
         "→".bright_cyan(),
         server.bright_white().bold()
     );
-    println!(
-        "  {} Output: {}",
-        "◆".bright_cyan(),
-        output.display()
-    );
+    println!("  {} Output: {}", "◆".bright_cyan(), output.display());
     println!();
 
     let parts: Vec<&str> = server.split_whitespace().collect();
@@ -1621,7 +1737,12 @@ async fn mcp_record(server: String, output: PathBuf) -> anyhow::Result<()> {
             "content": serde_json::from_str::<serde_json::Value>(content)
                 .unwrap_or_else(|_| serde_json::Value::String(content.to_string()))
         });
-        writeln!(file, "{}", serde_json::to_string(&entry).unwrap_or_default()).ok();
+        writeln!(
+            file,
+            "{}",
+            serde_json::to_string(&entry).unwrap_or_default()
+        )
+        .ok();
         *count += 1;
     };
 
@@ -1636,12 +1757,16 @@ async fn mcp_record(server: String, output: PathBuf) -> anyhow::Result<()> {
     });
     let init_str = serde_json::to_string(&init)?;
     record_msg(&mut out_file, "client→server", &init_str, &mut msg_count);
-    child_stdin.write_all(format!("{}\n", init_str).as_bytes()).await?;
+    child_stdin
+        .write_all(format!("{}\n", init_str).as_bytes())
+        .await?;
 
     // Record session until timeout or EOF
     let session = async {
         while let Some(line) = reader.next_line().await? {
-            if line.trim().is_empty() { continue; }
+            if line.trim().is_empty() {
+                continue;
+            }
             record_msg(&mut out_file, "server→client", &line, &mut msg_count);
             println!("  {} {}", "←".bright_green(), line.dimmed());
         }
@@ -1726,7 +1851,10 @@ async fn handle_model_command(cmd: ModelCommands) -> anyhow::Result<()> {
             let models_dir = expand_home(models_dir);
             let manager = LocalModelManager::new(&models_dir);
             let models = manager.discover_models()?;
-            if let Some(model) = models.iter().find(|m| m.id == name || m.name.contains(&name)) {
+            if let Some(model) = models
+                .iter()
+                .find(|m| m.id == name || m.name.contains(&name))
+            {
                 println!("Model Information:");
                 println!("  ID: {}", model.id);
                 println!("  Name: {}", model.name);
@@ -1751,14 +1879,25 @@ async fn handle_model_command(cmd: ModelCommands) -> anyhow::Result<()> {
                 std::process::exit(1);
             }
         }
-        ModelCommands::Remove { name, models_dir, yes } => {
+        ModelCommands::Remove {
+            name,
+            models_dir,
+            yes,
+        } => {
             let models_dir = expand_home(models_dir);
             let manager = LocalModelManager::new(&models_dir);
             let models = manager.discover_models()?;
-            if let Some(model) = models.iter().find(|m| m.id == name || m.name.contains(&name)) {
+            if let Some(model) = models
+                .iter()
+                .find(|m| m.id == name || m.name.contains(&name))
+            {
                 if let Some(path) = &model.path {
                     if !yes {
-                        print!("Are you sure you want to remove '{}' ({})? [y/N] ", model.name, path.display());
+                        print!(
+                            "Are you sure you want to remove '{}' ({})? [y/N] ",
+                            model.name,
+                            path.display()
+                        );
                         io::stdout().flush()?;
                         let mut input = String::new();
                         io::stdin().read_line(&mut input)?;

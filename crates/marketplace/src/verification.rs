@@ -69,12 +69,17 @@ impl SkillVerifier {
         let signed_payload = build_signed_payload(&package.manifest_hash, &package.wasm_bytes);
 
         // 2. Parse the verifying key
-        let key_bytes: [u8; 32] = package.signer_public_key.as_slice().try_into().map_err(|_| {
-            SignatureError::InvalidPublicKey(format!(
-                "expected 32 bytes, got {}",
-                package.signer_public_key.len()
-            ))
-        })?;
+        let key_bytes: [u8; 32] =
+            package
+                .signer_public_key
+                .as_slice()
+                .try_into()
+                .map_err(|_| {
+                    SignatureError::InvalidPublicKey(format!(
+                        "expected 32 bytes, got {}",
+                        package.signer_public_key.len()
+                    ))
+                })?;
         let verifying_key = VerifyingKey::from_bytes(&key_bytes)
             .map_err(|e| SignatureError::InvalidPublicKey(e.to_string()))?;
 
@@ -228,7 +233,10 @@ impl KeyRegistry {
     }
 
     /// Load keys from a TOML/JSON config slice of (hex_key, trust_level) pairs
-    pub fn load_trusted_keys(&mut self, entries: &[(Vec<u8>, TrustLevel)]) -> VerificationResult<()> {
+    pub fn load_trusted_keys(
+        &mut self,
+        entries: &[(Vec<u8>, TrustLevel)],
+    ) -> VerificationResult<()> {
         for (key_bytes, trust) in entries {
             self.register_key(key_bytes, None, trust.clone())?;
         }

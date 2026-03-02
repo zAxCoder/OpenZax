@@ -135,8 +135,7 @@ pub fn print_welcome() {
     let tip = format!(
         "    {} {}",
         "●".truecolor(255, 180, 60),
-        "Type your message below, or use /help to see all commands"
-            .truecolor(100, 100, 130),
+        "Type your message below, or use /help to see all commands".truecolor(100, 100, 130),
     );
     println!("{}", tip);
 
@@ -219,17 +218,11 @@ pub fn print_model_info(name: &str, provider: &str) {
 pub fn print_separator() {
     let w = term_width().min(72);
     let inner = w.saturating_sub(4);
-    println!(
-        "  {}",
-        "─".repeat(inner).truecolor(45, 45, 60)
-    );
+    println!("  {}", "─".repeat(inner).truecolor(45, 45, 60));
 }
 
 pub fn print_streaming_start() {
-    print!(
-        "  {} ",
-        "▍".truecolor(100, 180, 255)
-    );
+    print!("  {} ", "▍".truecolor(100, 180, 255));
     std::io::stdout().flush().unwrap();
 }
 
@@ -276,10 +269,7 @@ pub fn print_help() {
     println!("{}", top);
     println!(
         "{}",
-        pad_line(&format!(
-            "{}",
-            " Commands".truecolor(100, 180, 255).bold()
-        ))
+        pad_line(&format!("{}", " Commands".truecolor(100, 180, 255).bold()))
     );
     println!(
         "{}",
@@ -388,10 +378,7 @@ pub fn print_status_bar(model: &str, provider: &str) {
         provider.truecolor(140, 140, 170),
     );
 
-    let right = format!(
-        "v{}  ",
-        VERSION.truecolor(70, 70, 90)
-    );
+    let right = format!("v{}  ", VERSION.truecolor(70, 70, 90));
 
     let left_vis = console::measure_text_width(&left);
     let right_vis = console::measure_text_width(&right);
@@ -424,8 +411,7 @@ pub fn print_agent_label() {
 pub fn print_cost_info(tokens: usize, duration_secs: f64) {
     println!(
         "  {}",
-        format!("  {} tokens · {:.1}s", tokens, duration_secs)
-            .truecolor(70, 70, 90)
+        format!("  {} tokens · {:.1}s", tokens, duration_secs).truecolor(70, 70, 90)
     );
 }
 
@@ -514,7 +500,7 @@ pub fn print_getting_started() {
     let connect_line = format!(
         " {}{}{}",
         "Connect provider".truecolor(220, 220, 235),
-        "         ".to_string(),
+        "         ",
         "/connect".truecolor(255, 180, 60),
     );
     println!("{}", pad_line(&connect_line));

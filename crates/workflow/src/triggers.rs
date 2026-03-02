@@ -2,11 +2,7 @@ use chrono::{DateTime, Utc};
 use cron::Schedule;
 use notify::{Event as NotifyEvent, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    str::FromStr,
-};
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
@@ -182,7 +178,9 @@ impl TriggerManager {
     }
 
     async fn start_trigger(&mut self, workflow_id: Uuid) -> TriggerResult<()> {
-        let trigger = self.triggers.get(&workflow_id)
+        let trigger = self
+            .triggers
+            .get(&workflow_id)
             .ok_or(TriggerError::NotFound(workflow_id))?;
 
         let config = trigger.config.clone();
@@ -193,16 +191,22 @@ impl TriggerManager {
                 let schedule = schedule.clone();
                 tokio::spawn(async move {
                     run_cron_trigger(workflow_id, schedule, config, tx).await;
-                }).abort_handle()
+                })
+                .abort_handle()
             }
 
-            TriggerConfig::FilesystemWatch { path, recursive, events } => {
+            TriggerConfig::FilesystemWatch {
+                path,
+                recursive,
+                events,
+            } => {
                 let path = path.clone();
                 let recursive = *recursive;
                 let events = events.clone();
                 tokio::spawn(async move {
                     run_fs_watch_trigger(workflow_id, path, recursive, events, config, tx).await;
-                }).abort_handle()
+                })
+                .abort_handle()
             }
 
             TriggerConfig::Manual => {
@@ -223,19 +227,24 @@ impl TriggerManager {
                 return Ok(());
             }
 
-            TriggerConfig::McpEvent { server_id, event_name } => {
+            TriggerConfig::McpEvent {
+                server_id,
+                event_name,
+            } => {
                 let server_id = server_id.clone();
                 let event_name = event_name.clone();
                 tokio::spawn(async move {
                     run_mcp_event_trigger(workflow_id, server_id, event_name, config, tx).await;
-                }).abort_handle()
+                })
+                .abort_handle()
             }
 
             TriggerConfig::OsEvent { event_type } => {
                 let event_type = event_type.clone();
                 tokio::spawn(async move {
                     run_os_event_trigger(workflow_id, event_type, config, tx).await;
-                }).abort_handle()
+                })
+                .abort_handle()
             }
         };
 
@@ -258,18 +267,34 @@ impl TriggerManager {
     }
 
     /// Manually fire a trigger (for Manual and testing purposes)
-    pub async fn fire_manual(&self, workflow_id: Uuid, payload: serde_json::Value) -> TriggerResult<()> {
+    pub async fn fire_manual(
+        &self,
+        workflow_id: Uuid,
+        payload: serde_json::Value,
+    ) -> TriggerResult<()> {
         let event = TriggerEvent::new(workflow_id, TriggerConfig::Manual, payload);
-        self.event_tx.send(event).await.map_err(|_| TriggerError::ChannelClosed)
+        self.event_tx
+            .send(event)
+            .await
+            .map_err(|_| TriggerError::ChannelClosed)
     }
 
     /// Fire a chained trigger when a parent workflow completes
-    pub async fn fire_chained(&self, parent_workflow_id: Uuid, output: serde_json::Value) -> TriggerResult<()> {
+    pub async fn fire_chained(
+        &self,
+        parent_workflow_id: Uuid,
+        output: serde_json::Value,
+    ) -> TriggerResult<()> {
         for trigger in self.triggers.values() {
-            if let TriggerConfig::ChainedFrom { workflow_id, condition } = &trigger.config {
+            if let TriggerConfig::ChainedFrom {
+                workflow_id,
+                condition,
+            } = &trigger.config
+            {
                 if *workflow_id == parent_workflow_id {
                     // Evaluate condition if present (simplified: always fire if no condition)
-                    let should_fire = condition.as_ref()
+                    let should_fire = condition
+                        .as_ref()
                         .map(|_cond| true) // full eval would use an expression engine
                         .unwrap_or(true);
 
@@ -279,7 +304,10 @@ impl TriggerManager {
                             trigger.config.clone(),
                             output.clone(),
                         );
-                        self.event_tx.send(event).await.map_err(|_| TriggerError::ChannelClosed)?;
+                        self.event_tx
+                            .send(event)
+                            .await
+                            .map_err(|_| TriggerError::ChannelClosed)?;
                     }
                 }
             }
@@ -341,25 +369,33 @@ async fn run_fs_watch_trigger(
 ) {
     let (notify_tx, mut notify_rx) = mpsc::channel::<NotifyEvent>(64);
 
-    let mut watcher: RecommendedWatcher = match notify::recommended_watcher(move |res: notify::Result<NotifyEvent>| {
-        if let Ok(event) = res {
-            let _ = notify_tx.blocking_send(event);
-        }
-    }) {
-        Ok(w) => w,
-        Err(e) => {
-            error!("Failed to create filesystem watcher: {e}");
-            return;
-        }
-    };
+    let mut watcher: RecommendedWatcher =
+        match notify::recommended_watcher(move |res: notify::Result<NotifyEvent>| {
+            if let Ok(event) = res {
+                let _ = notify_tx.blocking_send(event);
+            }
+        }) {
+            Ok(w) => w,
+            Err(e) => {
+                error!("Failed to create filesystem watcher: {e}");
+                return;
+            }
+        };
 
-    let mode = if recursive { RecursiveMode::Recursive } else { RecursiveMode::NonRecursive };
+    let mode = if recursive {
+        RecursiveMode::Recursive
+    } else {
+        RecursiveMode::NonRecursive
+    };
     if let Err(e) = watcher.watch(&path, mode) {
         error!("Failed to watch path {:?}: {e}", path);
         return;
     }
 
-    info!("Filesystem watch trigger started for workflow {workflow_id}: {:?}", path);
+    info!(
+        "Filesystem watch trigger started for workflow {workflow_id}: {:?}",
+        path
+    );
 
     while let Some(notify_event) = notify_rx.recv().await {
         let fs_event = match notify_event.kind {
@@ -373,7 +409,9 @@ async fn run_fs_watch_trigger(
             continue;
         }
 
-        let paths: Vec<String> = notify_event.paths.iter()
+        let paths: Vec<String> = notify_event
+            .paths
+            .iter()
             .map(|p| p.display().to_string())
             .collect();
 
@@ -421,7 +459,10 @@ async fn run_os_event_trigger(
     tx: mpsc::Sender<TriggerEvent>,
 ) {
     // OS event monitoring - simplified stub; real impl uses platform APIs
-    info!("OS event trigger started for workflow {workflow_id}: {:?}", event_type);
+    info!(
+        "OS event trigger started for workflow {workflow_id}: {:?}",
+        event_type
+    );
 
     match event_type {
         OsEventType::Startup => {
@@ -438,7 +479,10 @@ async fn run_os_event_trigger(
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
             loop {
                 interval.tick().await;
-                debug!("OS event poll for {:?} (workflow {workflow_id})", event_type);
+                debug!(
+                    "OS event poll for {:?} (workflow {workflow_id})",
+                    event_type
+                );
             }
         }
     }

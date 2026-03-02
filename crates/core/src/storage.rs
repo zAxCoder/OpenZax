@@ -1,7 +1,7 @@
-use rusqlite::{Connection, params, OptionalExtension};
 use chrono::Utc;
-use uuid::Uuid;
+use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
+use uuid::Uuid;
 
 pub struct Storage {
     conn: Connection,
@@ -75,7 +75,13 @@ impl Storage {
         self.conn.execute(
             "INSERT INTO messages (id, conversation_id, role, content, created_at) 
              VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![id.to_string(), conversation_id.to_string(), role, content, now],
+            params![
+                id.to_string(),
+                conversation_id.to_string(),
+                role,
+                content,
+                now
+            ],
         )?;
 
         self.conn.execute(
@@ -116,7 +122,9 @@ impl Storage {
     }
 
     pub fn get_config(&self, key: &str) -> crate::Result<Option<String>> {
-        let mut stmt = self.conn.prepare("SELECT value FROM config WHERE key = ?1")?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT value FROM config WHERE key = ?1")?;
         let result = stmt.query_row(params![key], |row| row.get(0)).optional()?;
         Ok(result)
     }

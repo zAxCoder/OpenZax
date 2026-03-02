@@ -55,7 +55,9 @@ impl AgentBudget {
         let remaining_tokens = other.max_tokens.saturating_sub(other.current_tokens);
         let elapsed = other.start_time.elapsed().as_secs();
         let remaining_wall = other.max_wall_time_secs.saturating_sub(elapsed);
-        let remaining_tools = other.max_tool_calls.saturating_sub(other.current_tool_calls);
+        let remaining_tools = other
+            .max_tool_calls
+            .saturating_sub(other.current_tool_calls);
         Self {
             max_tokens: (remaining_tokens as f32 * f) as u64,
             max_wall_time_secs: (remaining_wall as f32 * f) as u64,
@@ -82,7 +84,10 @@ impl AgentBudget {
 pub struct BudgetEnforcer;
 
 impl BudgetEnforcer {
-    pub fn check_token_budget(budget: &AgentBudget, tokens_to_consume: u64) -> Result<(), DelegationError> {
+    pub fn check_token_budget(
+        budget: &AgentBudget,
+        tokens_to_consume: u64,
+    ) -> Result<(), DelegationError> {
         if budget.current_tokens + tokens_to_consume > budget.max_tokens {
             return Err(DelegationError::BudgetExhausted(format!(
                 "Token budget exceeded: {}/{} (need {} more)",
@@ -220,9 +225,15 @@ impl AgentSpawner {
         Ok(handle)
     }
 
-    pub fn complete_agent(&self, agent_id: Uuid, result: serde_json::Value) -> Result<(), DelegationError> {
+    pub fn complete_agent(
+        &self,
+        agent_id: Uuid,
+        result: serde_json::Value,
+    ) -> Result<(), DelegationError> {
         let mut agents = self.agents.lock().unwrap();
-        let agent = agents.get_mut(&agent_id).ok_or(DelegationError::AgentNotFound(agent_id))?;
+        let agent = agents
+            .get_mut(&agent_id)
+            .ok_or(DelegationError::AgentNotFound(agent_id))?;
         if agent.status.is_terminal() {
             return Err(DelegationError::AlreadyCompleted);
         }
@@ -230,10 +241,18 @@ impl AgentSpawner {
         Ok(())
     }
 
-    pub fn fail_agent(&self, agent_id: Uuid, error: impl Into<String>) -> Result<(), DelegationError> {
+    pub fn fail_agent(
+        &self,
+        agent_id: Uuid,
+        error: impl Into<String>,
+    ) -> Result<(), DelegationError> {
         let mut agents = self.agents.lock().unwrap();
-        let agent = agents.get_mut(&agent_id).ok_or(DelegationError::AgentNotFound(agent_id))?;
-        agent.status = AgentStatus::Failed { error: error.into() };
+        let agent = agents
+            .get_mut(&agent_id)
+            .ok_or(DelegationError::AgentNotFound(agent_id))?;
+        agent.status = AgentStatus::Failed {
+            error: error.into(),
+        };
         Ok(())
     }
 
@@ -264,7 +283,9 @@ impl AgentSpawner {
 
     pub fn kill(&self, agent_id: Uuid, reason: &str) -> Result<(), DelegationError> {
         let mut agents = self.agents.lock().unwrap();
-        let agent = agents.get_mut(&agent_id).ok_or(DelegationError::AgentNotFound(agent_id))?;
+        let agent = agents
+            .get_mut(&agent_id)
+            .ok_or(DelegationError::AgentNotFound(agent_id))?;
         tracing::warn!("Killing agent {}: {}", agent_id, reason);
         agent.status = AgentStatus::Killed;
         Ok(())
@@ -324,15 +345,23 @@ impl AgentSpawner {
         AgentBudget::fraction_of(parent, fraction)
     }
 
-    pub fn update_budget_tokens(&self, agent_id: Uuid, tokens_used: u64) -> Result<(), DelegationError> {
+    pub fn update_budget_tokens(
+        &self,
+        agent_id: Uuid,
+        tokens_used: u64,
+    ) -> Result<(), DelegationError> {
         let mut agents = self.agents.lock().unwrap();
-        let agent = agents.get_mut(&agent_id).ok_or(DelegationError::AgentNotFound(agent_id))?;
+        let agent = agents
+            .get_mut(&agent_id)
+            .ok_or(DelegationError::AgentNotFound(agent_id))?;
         BudgetEnforcer::consume_tokens(&mut agent.budget, tokens_used)
     }
 
     pub fn update_budget_tool_call(&self, agent_id: Uuid) -> Result<(), DelegationError> {
         let mut agents = self.agents.lock().unwrap();
-        let agent = agents.get_mut(&agent_id).ok_or(DelegationError::AgentNotFound(agent_id))?;
+        let agent = agents
+            .get_mut(&agent_id)
+            .ok_or(DelegationError::AgentNotFound(agent_id))?;
         BudgetEnforcer::consume_tool_call(&mut agent.budget)
     }
 }

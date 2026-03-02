@@ -1,12 +1,15 @@
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, OptionalExtension, Row, params};
+use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::sync::Mutex;
 use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::{
     error::Result,
-    types::{DeveloperProfile, Review, ReviewStatus, Skill, SkillCategory, SkillSearchQuery, SkillSortOrder},
+    types::{
+        DeveloperProfile, Review, ReviewStatus, Skill, SkillCategory, SkillSearchQuery,
+        SkillSortOrder,
+    },
 };
 
 pub struct MarketplaceDb {
@@ -16,14 +19,18 @@ pub struct MarketplaceDb {
 impl MarketplaceDb {
     pub fn open(path: &str) -> Result<Self> {
         let conn = Connection::open(path)?;
-        let db = Self { conn: Mutex::new(conn) };
+        let db = Self {
+            conn: Mutex::new(conn),
+        };
         db.initialize()?;
         Ok(db)
     }
 
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
-        let db = Self { conn: Mutex::new(conn) };
+        let db = Self {
+            conn: Mutex::new(conn),
+        };
         db.initialize()?;
         Ok(db)
     }
@@ -181,11 +188,13 @@ impl MarketplaceDb {
 
     pub fn get_skill(&self, id: Uuid) -> Result<Option<Skill>> {
         self.with_conn(|conn| {
-            let row = conn.query_row(
-                "SELECT * FROM skills WHERE id = ?1",
-                params![id.to_string()],
-                row_to_skill,
-            ).optional()?;
+            let row = conn
+                .query_row(
+                    "SELECT * FROM skills WHERE id = ?1",
+                    params![id.to_string()],
+                    row_to_skill,
+                )
+                .optional()?;
             Ok(row)
         })
     }
@@ -246,19 +255,18 @@ impl MarketplaceDb {
         };
 
         if let Some(ref text) = query.query {
-            let fts_sql = format!(
-                r#"SELECT s.* FROM skills s
+            let fts_sql = r#"SELECT s.* FROM skills s
                    JOIN skills_fts f ON f.id = s.id
                    WHERE skills_fts MATCH ?1 AND s.review_status = 'approved'
                    ORDER BY rank LIMIT ?2 OFFSET ?3"#
-            );
+                .to_string();
 
             return self.with_conn(|conn| {
                 let mut stmt = conn.prepare(&fts_sql)?;
-                let skills: Vec<Skill> = stmt.query_map(
-                    params![text, limit, offset],
-                    row_to_skill,
-                )?.filter_map(|r| r.ok()).collect();
+                let skills: Vec<Skill> = stmt
+                    .query_map(params![text, limit, offset], row_to_skill)?
+                    .filter_map(|r| r.ok())
+                    .collect();
                 let count = skills.len() as u64;
                 Ok((skills, count))
             });
@@ -277,10 +285,10 @@ impl MarketplaceDb {
             };
 
             let mut stmt = conn.prepare(&data_sql)?;
-            let skills: Vec<Skill> = stmt.query_map(
-                rusqlite::params_from_iter(bind_values.iter()),
-                row_to_skill,
-            )?.filter_map(|r| r.ok()).collect();
+            let skills: Vec<Skill> = stmt
+                .query_map(rusqlite::params_from_iter(bind_values.iter()), row_to_skill)?
+                .filter_map(|r| r.ok())
+                .collect();
 
             Ok((skills, total as u64))
         })
@@ -294,7 +302,8 @@ impl MarketplaceDb {
                    ORDER BY download_count DESC, rating_avg DESC
                    LIMIT ?1"#,
             )?;
-            let skills = stmt.query_map(params![limit as i64], row_to_skill)?
+            let skills = stmt
+                .query_map(params![limit as i64], row_to_skill)?
                 .filter_map(|r| r.ok())
                 .collect();
             Ok(skills)
@@ -324,11 +333,13 @@ impl MarketplaceDb {
 
     pub fn get_package_bytes(&self, skill_id: Uuid) -> Result<Option<Vec<u8>>> {
         self.with_conn(|conn| {
-            let row = conn.query_row(
-                "SELECT wasm_bytes FROM skill_packages WHERE skill_id = ?1",
-                params![skill_id.to_string()],
-                |row| row.get::<_, Vec<u8>>(0),
-            ).optional()?;
+            let row = conn
+                .query_row(
+                    "SELECT wasm_bytes FROM skill_packages WHERE skill_id = ?1",
+                    params![skill_id.to_string()],
+                    |row| row.get::<_, Vec<u8>>(0),
+                )
+                .optional()?;
             Ok(row)
         })
     }
@@ -365,10 +376,10 @@ impl MarketplaceDb {
 
     pub fn list_reviews(&self, skill_id: Uuid) -> Result<Vec<Review>> {
         self.with_conn(|conn| {
-            let mut stmt = conn.prepare(
-                "SELECT * FROM reviews WHERE skill_id = ?1 ORDER BY created_at DESC",
-            )?;
-            let reviews = stmt.query_map(params![skill_id.to_string()], row_to_review)?
+            let mut stmt =
+                conn.prepare("SELECT * FROM reviews WHERE skill_id = ?1 ORDER BY created_at DESC")?;
+            let reviews = stmt
+                .query_map(params![skill_id.to_string()], row_to_review)?
                 .filter_map(|r| r.ok())
                 .collect();
             Ok(reviews)
@@ -402,11 +413,13 @@ impl MarketplaceDb {
 
     pub fn get_developer(&self, id: Uuid) -> Result<Option<DeveloperProfile>> {
         self.with_conn(|conn| {
-            let row = conn.query_row(
-                "SELECT * FROM developers WHERE id = ?1",
-                params![id.to_string()],
-                row_to_developer,
-            ).optional()?;
+            let row = conn
+                .query_row(
+                    "SELECT * FROM developers WHERE id = ?1",
+                    params![id.to_string()],
+                    row_to_developer,
+                )
+                .optional()?;
             Ok(row)
         })
     }
@@ -448,7 +461,8 @@ fn row_to_skill(row: &Row<'_>) -> rusqlite::Result<Skill> {
         name: row.get("name")?,
         version: row.get("version")?,
         description: row.get("description")?,
-        author_id: Uuid::parse_str(&row.get::<_, String>("author_id")?).unwrap_or_else(|_| Uuid::nil()),
+        author_id: Uuid::parse_str(&row.get::<_, String>("author_id")?)
+            .unwrap_or_else(|_| Uuid::nil()),
         author_name: row.get("author_name")?,
         license: row.get("license")?,
         category: category_str.parse().unwrap_or(SkillCategory::Utilities),
@@ -472,8 +486,10 @@ fn row_to_review(row: &Row<'_>) -> rusqlite::Result<Review> {
     let created_str: String = row.get("created_at")?;
     Ok(Review {
         id: Uuid::parse_str(&row.get::<_, String>("id")?).unwrap_or_else(|_| Uuid::nil()),
-        skill_id: Uuid::parse_str(&row.get::<_, String>("skill_id")?).unwrap_or_else(|_| Uuid::nil()),
-        reviewer_id: Uuid::parse_str(&row.get::<_, String>("reviewer_id")?).unwrap_or_else(|_| Uuid::nil()),
+        skill_id: Uuid::parse_str(&row.get::<_, String>("skill_id")?)
+            .unwrap_or_else(|_| Uuid::nil()),
+        reviewer_id: Uuid::parse_str(&row.get::<_, String>("reviewer_id")?)
+            .unwrap_or_else(|_| Uuid::nil()),
         rating: row.get::<_, i64>("rating")? as u8,
         comment: row.get("comment")?,
         is_community_review: row.get::<_, i64>("is_community_review")? != 0,

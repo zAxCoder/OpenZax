@@ -140,12 +140,15 @@ impl SecretVault {
     }
 
     fn decrypt(&self, ciphertext: &[u8]) -> Result<Vec<u8>> {
-        let decryptor = match age::Decryptor::new(ciphertext)
-            .map_err(|e| Error::Decryption(e.to_string()))?
-        {
-            age::Decryptor::Passphrase(d) => d,
-            _ => return Err(Error::Decryption("unexpected decryptor variant (expected Passphrase)".into())),
-        };
+        let decryptor =
+            match age::Decryptor::new(ciphertext).map_err(|e| Error::Decryption(e.to_string()))? {
+                age::Decryptor::Passphrase(d) => d,
+                _ => {
+                    return Err(Error::Decryption(
+                        "unexpected decryptor variant (expected Passphrase)".into(),
+                    ))
+                }
+            };
 
         let mut plaintext = vec![];
         let mut reader = decryptor
@@ -206,7 +209,8 @@ impl SecretVault {
         let entries: Vec<(String, Vec<u8>)> = {
             let conn = self.conn.lock().unwrap();
             let mut stmt = conn.prepare("SELECT key, cipher_blob FROM secrets")?;
-            let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            let rows = stmt
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
             rows
         };
@@ -237,9 +241,8 @@ impl SecretVault {
     /// encrypted under the current master passphrase).
     pub fn export(&self) -> Result<Vec<VaultEntry>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT key, cipher_blob, nonce, created_at, updated_at FROM secrets",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT key, cipher_blob, nonce, created_at, updated_at FROM secrets")?;
         let entries = stmt
             .query_map([], |row| {
                 Ok(VaultEntry {
@@ -300,10 +303,7 @@ impl SecretRedactor {
 
     /// Registers a plaintext secret value so it will be redacted in logs.
     pub fn register_secret(&self, secret: impl Into<String>) {
-        self.known_secrets
-            .lock()
-            .unwrap()
-            .insert(secret.into());
+        self.known_secrets.lock().unwrap().insert(secret.into());
     }
 
     fn redact(&self, input: &str) -> String {

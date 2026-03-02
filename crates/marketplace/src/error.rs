@@ -65,7 +65,10 @@ impl axum::response::IntoResponse for MarketplaceError {
                 (StatusCode::BAD_REQUEST, self.to_string())
             }
             Self::PackageTooLarge { .. } => (StatusCode::PAYLOAD_TOO_LARGE, self.to_string()),
-            _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
         };
 
         let body = serde_json::json!({

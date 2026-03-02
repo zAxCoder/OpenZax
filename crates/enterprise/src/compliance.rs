@@ -167,7 +167,10 @@ impl SiemExporter {
             }
         });
         if let serde_json::Value::Object(ref mut map) = v {
-            map.insert("original_event".to_string(), serde_json::to_value(event).unwrap_or_default());
+            map.insert(
+                "original_event".to_string(),
+                serde_json::to_value(event).unwrap_or_default(),
+            );
         }
         v
     }
@@ -282,7 +285,11 @@ impl ComplianceEngine {
         results.push(ControlResult {
             control_id: "CC7.2".to_string(),
             name: "Incident Detection".to_string(),
-            status: if incident_count < 100 { ControlStatus::Pass } else { ControlStatus::ManualReview },
+            status: if incident_count < 100 {
+                ControlStatus::Pass
+            } else {
+                ControlStatus::ManualReview
+            },
             description: "Failure events are logged and available for review".to_string(),
             evidence: format!("{} failure events in last 30 days", incident_count),
         });
@@ -293,21 +300,28 @@ impl ComplianceEngine {
             name: "Change Management".to_string(),
             status: ControlStatus::ManualReview,
             description: "Change management process requires manual verification".to_string(),
-            evidence: "Config versioning system active; manual review of deployment records required".to_string(),
+            evidence:
+                "Config versioning system active; manual review of deployment records required"
+                    .to_string(),
         });
 
         // A1.1 - Availability commitments
-        let total_events: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM audit_events WHERE org_id = ?1",
-            params![org_id],
-            |r| r.get(0),
-        ).unwrap_or(0);
+        let total_events: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM audit_events WHERE org_id = ?1",
+                params![org_id],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
         results.push(ControlResult {
             control_id: "A1.1".to_string(),
             name: "Availability Commitments".to_string(),
             status: ControlStatus::Pass,
             description: "System availability metrics are tracked".to_string(),
-            evidence: format!("{} total audit events; uptime monitoring enabled", total_events),
+            evidence: format!(
+                "{} total audit events; uptime monitoring enabled",
+                total_events
+            ),
         });
 
         Ok(results)
@@ -350,8 +364,9 @@ impl ComplianceEngine {
             .collect::<Result<Vec<_>, _>>()?;
 
         let output = match format {
-            AuditExportFormat::Json => serde_json::to_string_pretty(&events)
-                .map_err(ComplianceError::from)?,
+            AuditExportFormat::Json => {
+                serde_json::to_string_pretty(&events).map_err(ComplianceError::from)?
+            }
             AuditExportFormat::Csv => {
                 let mut csv = "event_id,org_id,user_id,action,resource_type,resource_id,outcome,ip_address,timestamp\n".to_string();
                 for e in &events {
@@ -397,12 +412,21 @@ impl ComplianceEngine {
             }],
         };
 
-        let passed = controls.iter().filter(|c| c.status == ControlStatus::Pass).count() as u32;
-        let failed = controls.iter().filter(|c| c.status == ControlStatus::Fail).count() as u32;
+        let passed = controls
+            .iter()
+            .filter(|c| c.status == ControlStatus::Pass)
+            .count() as u32;
+        let failed = controls
+            .iter()
+            .filter(|c| c.status == ControlStatus::Fail)
+            .count() as u32;
 
         let status = if failed > 0 {
             ComplianceCheckStatus::NonCompliant
-        } else if controls.iter().any(|c| c.status == ControlStatus::ManualReview) {
+        } else if controls
+            .iter()
+            .any(|c| c.status == ControlStatus::ManualReview)
+        {
             ComplianceCheckStatus::InProgress
         } else {
             ComplianceCheckStatus::Compliant
@@ -418,14 +442,21 @@ impl ComplianceEngine {
         })
     }
 
-    pub fn apply_data_retention(&mut self, policy: DataRetentionPolicy) -> Result<(), ComplianceError> {
+    pub fn apply_data_retention(
+        &mut self,
+        policy: DataRetentionPolicy,
+    ) -> Result<(), ComplianceError> {
         let conn = self.conn.lock().unwrap();
         let cutoff = Utc::now() - chrono::Duration::days(policy.audit_log_days as i64);
         let deleted = conn.execute(
             "DELETE FROM audit_events WHERE timestamp < ?1",
             params![cutoff.to_rfc3339()],
         )?;
-        tracing::info!("Data retention: deleted {} audit events older than {} days", deleted, policy.audit_log_days);
+        tracing::info!(
+            "Data retention: deleted {} audit events older than {} days",
+            deleted,
+            policy.audit_log_days
+        );
         self.retention_policy = policy;
         Ok(())
     }

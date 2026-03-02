@@ -1,3 +1,4 @@
+use chrono::Utc;
 use colored::Colorize;
 use openzax_core::{
     agent::{Agent, AgentConfig},
@@ -7,7 +8,6 @@ use openzax_core::{
 };
 use std::io::{self, Write};
 use uuid::Uuid;
-use chrono::Utc;
 
 pub struct TerminalShell {
     agent: Agent,
@@ -21,7 +21,7 @@ impl TerminalShell {
         let event_bus = EventBus::default();
         let agent = Agent::new(config, event_bus.clone());
         let conversation_id = Uuid::new_v4();
-        
+
         storage.create_conversation(conversation_id)?;
 
         Ok(Self {
@@ -34,7 +34,7 @@ impl TerminalShell {
 
     pub async fn run(&self) -> Result<()> {
         let mut event_receiver = self.event_bus.subscribe();
-        
+
         tokio::spawn(async move {
             while let Ok(event) = event_receiver.recv().await {
                 match event {
@@ -118,12 +118,8 @@ impl TerminalShell {
                 "OpenZax".truecolor(255, 180, 60).bold()
             );
 
-            self.storage.save_message(
-                Uuid::new_v4(),
-                self.conversation_id,
-                "user",
-                input,
-            )?;
+            self.storage
+                .save_message(Uuid::new_v4(), self.conversation_id, "user", input)?;
 
             self.event_bus.publish(Event::UserInput {
                 session_id: self.conversation_id,
@@ -132,10 +128,7 @@ impl TerminalShell {
                 timestamp: Utc::now(),
             })?;
 
-            print!(
-                "  {} ",
-                "▍".truecolor(100, 180, 255)
-            );
+            print!("  {} ", "▍".truecolor(100, 180, 255));
             io::stdout().flush().ok();
 
             match self.agent.process_streaming(input).await {

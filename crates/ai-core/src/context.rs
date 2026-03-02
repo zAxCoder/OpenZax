@@ -92,7 +92,11 @@ impl ContextCompressor {
 
     pub fn sliding_window(window: &mut ContextWindow, keep_last_n: usize) {
         // Always keep the first message (system prompt)
-        let system_prompt = window.messages.front().filter(|m| m.role == "system").cloned();
+        let system_prompt = window
+            .messages
+            .front()
+            .filter(|m| m.role == "system")
+            .cloned();
 
         let total = window.messages.len();
         if total <= keep_last_n {

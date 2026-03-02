@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::sync::Mutex;
 use thiserror::Error;
 use tracing::{debug, info};
@@ -56,14 +56,18 @@ pub struct WorkflowRegistry {
 impl WorkflowRegistry {
     pub fn open(path: &str) -> RegistryResult<Self> {
         let conn = Connection::open(path)?;
-        let reg = Self { conn: Mutex::new(conn) };
+        let reg = Self {
+            conn: Mutex::new(conn),
+        };
         reg.initialize()?;
         Ok(reg)
     }
 
     pub fn open_in_memory() -> RegistryResult<Self> {
         let conn = Connection::open_in_memory()?;
-        let reg = Self { conn: Mutex::new(conn) };
+        let reg = Self {
+            conn: Mutex::new(conn),
+        };
         reg.initialize()?;
         Ok(reg)
     }
@@ -154,7 +158,8 @@ impl WorkflowRegistry {
                 "SELECT body FROM workflows WHERE id = ?1",
                 params![id.to_string()],
                 |row| row.get::<_, String>(0),
-            ).optional()
+            )
+            .optional()
         })?;
 
         match body {
@@ -191,7 +196,10 @@ impl WorkflowRegistry {
 
     pub fn delete(&self, id: Uuid) -> RegistryResult<()> {
         let affected: usize = self.with_conn(|conn| {
-            conn.execute("DELETE FROM workflows WHERE id = ?1", params![id.to_string()])
+            conn.execute(
+                "DELETE FROM workflows WHERE id = ?1",
+                params![id.to_string()],
+            )
         })?;
         if affected == 0 {
             return Err(RegistryError::NotFound(id));
@@ -202,11 +210,14 @@ impl WorkflowRegistry {
     pub fn list(&self) -> RegistryResult<Vec<Workflow>> {
         let bodies: Vec<String> = self.with_conn(|conn| {
             let mut stmt = conn.prepare("SELECT body FROM workflows ORDER BY updated_at DESC")?;
-            let result: rusqlite::Result<Vec<String>> = stmt.query_map([], |row| row.get::<_, String>(0))?
-                .collect();
+            let result: rusqlite::Result<Vec<String>> =
+                stmt.query_map([], |row| row.get::<_, String>(0))?.collect();
             result
         })?;
-        Ok(bodies.into_iter().filter_map(|b| serde_json::from_str(&b).ok()).collect())
+        Ok(bodies
+            .into_iter()
+            .filter_map(|b| serde_json::from_str(&b).ok())
+            .collect())
     }
 
     pub fn list_active(&self) -> RegistryResult<Vec<Workflow>> {
@@ -214,20 +225,31 @@ impl WorkflowRegistry {
             let mut stmt = conn.prepare(
                 "SELECT body FROM workflows WHERE is_active = 1 ORDER BY updated_at DESC",
             )?;
-            let result: rusqlite::Result<Vec<String>> = stmt.query_map([], |row| row.get::<_, String>(0))?
-                .collect();
+            let result: rusqlite::Result<Vec<String>> =
+                stmt.query_map([], |row| row.get::<_, String>(0))?.collect();
             result
         })?;
-        Ok(bodies.into_iter().filter_map(|b| serde_json::from_str(&b).ok()).collect())
+        Ok(bodies
+            .into_iter()
+            .filter_map(|b| serde_json::from_str(&b).ok())
+            .collect())
     }
 
     // ── Version history ───────────────────────────────────────────────────────
 
-    pub fn save_version(&self, workflow: &Workflow, change_summary: Option<&str>) -> RegistryResult<()> {
+    pub fn save_version(
+        &self,
+        workflow: &Workflow,
+        change_summary: Option<&str>,
+    ) -> RegistryResult<()> {
         self.save_version_internal(workflow, change_summary)
     }
 
-    fn save_version_internal(&self, workflow: &Workflow, change_summary: Option<&str>) -> RegistryResult<()> {
+    fn save_version_internal(
+        &self,
+        workflow: &Workflow,
+        change_summary: Option<&str>,
+    ) -> RegistryResult<()> {
         let snapshot = serde_json::to_string(workflow)?;
         let now = Utc::now().to_rfc3339();
         self.with_conn(|conn| -> RegistryResult<()> {
@@ -246,7 +268,11 @@ impl WorkflowRegistry {
         })
     }
 
-    pub fn get_version(&self, workflow_id: Uuid, version: u32) -> RegistryResult<Option<WorkflowVersion>> {
+    pub fn get_version(
+        &self,
+        workflow_id: Uuid,
+        version: u32,
+    ) -> RegistryResult<Option<WorkflowVersion>> {
         let row: Option<(String, Option<String>, String)> = self.with_conn(|conn| {
             conn.query_row(
                 "SELECT snapshot, change_summary, saved_at FROM workflow_versions WHERE workflow_id=?1 AND version=?2",
@@ -261,7 +287,13 @@ impl WorkflowRegistry {
                 let saved_at = DateTime::parse_from_rfc3339(&saved_str)
                     .map(|d| d.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now());
-                Ok(Some(WorkflowVersion { workflow_id, version, snapshot, saved_at, change_summary }))
+                Ok(Some(WorkflowVersion {
+                    workflow_id,
+                    version,
+                    snapshot,
+                    saved_at,
+                    change_summary,
+                }))
             }
             None => Ok(None),
         }
@@ -283,22 +315,45 @@ impl WorkflowRegistry {
             result
         })?;
 
-        let versions = rows.into_iter().filter_map(|(version, snapshot_str, change_summary, saved_str)| {
-            let snapshot = serde_json::from_str(&snapshot_str).ok()?;
-            let saved_at = DateTime::parse_from_rfc3339(&saved_str)
-                .map(|d| d.with_timezone(&Utc)).ok()?;
-            Some(WorkflowVersion { workflow_id, version, snapshot, saved_at, change_summary })
-        }).collect();
+        let versions = rows
+            .into_iter()
+            .filter_map(|(version, snapshot_str, change_summary, saved_str)| {
+                let snapshot = serde_json::from_str(&snapshot_str).ok()?;
+                let saved_at = DateTime::parse_from_rfc3339(&saved_str)
+                    .map(|d| d.with_timezone(&Utc))
+                    .ok()?;
+                Some(WorkflowVersion {
+                    workflow_id,
+                    version,
+                    snapshot,
+                    saved_at,
+                    change_summary,
+                })
+            })
+            .collect();
 
         Ok(versions)
     }
 
     /// Returns a JSON diff between two versions (field-level additions/removals/changes)
-    pub fn diff_versions(&self, workflow_id: Uuid, v1: u32, v2: u32) -> RegistryResult<serde_json::Value> {
-        let ver1 = self.get_version(workflow_id, v1)?
-            .ok_or(RegistryError::VersionNotFound { workflow_id, version: v1 })?;
-        let ver2 = self.get_version(workflow_id, v2)?
-            .ok_or(RegistryError::VersionNotFound { workflow_id, version: v2 })?;
+    pub fn diff_versions(
+        &self,
+        workflow_id: Uuid,
+        v1: u32,
+        v2: u32,
+    ) -> RegistryResult<serde_json::Value> {
+        let ver1 = self
+            .get_version(workflow_id, v1)?
+            .ok_or(RegistryError::VersionNotFound {
+                workflow_id,
+                version: v1,
+            })?;
+        let ver2 = self
+            .get_version(workflow_id, v2)?
+            .ok_or(RegistryError::VersionNotFound {
+                workflow_id,
+                version: v2,
+            })?;
 
         Ok(json_diff(&ver1.snapshot, &ver2.snapshot))
     }
@@ -339,8 +394,14 @@ impl WorkflowRegistry {
         })
     }
 
-    pub fn get_execution_history(&self, workflow_id: Uuid, limit: u32) -> RegistryResult<Vec<ExecutionHistory>> {
-        let rows: Vec<(String, i64, String, Option<String>, u64, u32, String, String)> = self.with_conn(|conn| {
+    pub fn get_execution_history(
+        &self,
+        workflow_id: Uuid,
+        limit: u32,
+    ) -> RegistryResult<Vec<ExecutionHistory>> {
+        #[allow(clippy::type_complexity)]
+        let rows: Vec<(String, i64, String, Option<String>, u64, u32, String, String)> =
+            self.with_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"SELECT run_id, success, output, error_message, duration_ms, nodes_executed, trigger_payload, started_at
                    FROM execution_history WHERE workflow_id=?1 ORDER BY started_at DESC LIMIT ?2"#,
@@ -360,25 +421,40 @@ impl WorkflowRegistry {
             result
         })?;
 
-        let history = rows.into_iter().filter_map(|(run_id_str, success, output_str, error_message, duration_ms, nodes_executed, trigger_str, started_str)| {
-            let run_id = Uuid::parse_str(&run_id_str).ok()?;
-            let output = serde_json::from_str(&output_str).ok()?;
-            let trigger_payload = serde_json::from_str(&trigger_str).ok()?;
-            let started_at = DateTime::parse_from_rfc3339(&started_str)
-                .map(|d| d.with_timezone(&Utc)).ok()?;
+        let history = rows
+            .into_iter()
+            .filter_map(
+                |(
+                    run_id_str,
+                    success,
+                    output_str,
+                    error_message,
+                    duration_ms,
+                    nodes_executed,
+                    trigger_str,
+                    started_str,
+                )| {
+                    let run_id = Uuid::parse_str(&run_id_str).ok()?;
+                    let output = serde_json::from_str(&output_str).ok()?;
+                    let trigger_payload = serde_json::from_str(&trigger_str).ok()?;
+                    let started_at = DateTime::parse_from_rfc3339(&started_str)
+                        .map(|d| d.with_timezone(&Utc))
+                        .ok()?;
 
-            Some(ExecutionHistory {
-                run_id,
-                workflow_id,
-                success: success != 0,
-                output,
-                error_message,
-                duration_ms,
-                nodes_executed,
-                trigger_payload,
-                started_at,
-            })
-        }).collect();
+                    Some(ExecutionHistory {
+                        run_id,
+                        workflow_id,
+                        success: success != 0,
+                        output,
+                        error_message,
+                        duration_ms,
+                        nodes_executed,
+                        trigger_payload,
+                        started_at,
+                    })
+                },
+            )
+            .collect();
 
         Ok(history)
     }
@@ -393,7 +469,9 @@ impl WorkflowRegistry {
             )
         })?;
 
-        if total == 0 { return Ok(0.0); }
+        if total == 0 {
+            return Ok(0.0);
+        }
         Ok(successes as f64 / total as f64)
     }
 }
@@ -408,10 +486,13 @@ fn json_diff(a: &serde_json::Value, b: &serde_json::Value) -> serde_json::Value 
             for (key, a_val) in a_map {
                 if let Some(b_val) = b_map.get(key) {
                     if a_val != b_val {
-                        diff.insert(key.clone(), serde_json::json!({
-                            "from": a_val,
-                            "to": b_val,
-                        }));
+                        diff.insert(
+                            key.clone(),
+                            serde_json::json!({
+                                "from": a_val,
+                                "to": b_val,
+                            }),
+                        );
                     }
                 } else {
                     diff.insert(key.clone(), serde_json::json!({ "removed": a_val }));

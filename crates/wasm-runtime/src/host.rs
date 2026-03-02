@@ -1,6 +1,6 @@
 use crate::sandbox::SandboxConfig;
-use wasmtime_wasi::WasiCtx;
 use std::collections::HashMap;
+use wasmtime_wasi::WasiCtx;
 
 /// Host context that holds state for WASM instance
 pub struct HostContext {

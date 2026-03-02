@@ -34,6 +34,7 @@ impl ResourceClass {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s {
             "micro" => ResourceClass::Micro,
@@ -367,7 +368,11 @@ impl OrchestrationManager {
         })
     }
 
-    pub fn meter_usage(&self, org_id: &Uuid, month: &str) -> Result<UsageReport, OrchestrationError> {
+    pub fn meter_usage(
+        &self,
+        org_id: &Uuid,
+        month: &str,
+    ) -> Result<UsageReport, OrchestrationError> {
         let conn = self.conn.lock().unwrap();
         let period_start = format!("{}-01T00:00:00Z", month);
         let period_end = format!("{}-31T23:59:59Z", month);

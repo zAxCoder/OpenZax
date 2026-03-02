@@ -16,8 +16,8 @@ use crate::{
     scanner::Tier1Scanner,
     storage::MarketplaceDb,
     types::{
-        PaginatedResponse, Review, ReviewStatus, Skill, SkillCategory,
-        SkillSearchQuery, SkillSortOrder,
+        PaginatedResponse, Review, ReviewStatus, Skill, SkillCategory, SkillSearchQuery,
+        SkillSortOrder,
     },
     verification::{KeyRegistry, SkillVerifier},
 };
@@ -51,7 +51,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/v1/skills", get(list_skills).post(submit_skill))
         .route("/v1/skills/:id", get(get_skill))
         .route("/v1/skills/:id/download", get(download_skill))
-        .route("/v1/skills/:id/reviews", get(list_reviews).post(submit_review))
+        .route(
+            "/v1/skills/:id/reviews",
+            get(list_reviews).post(submit_review),
+        )
         .route("/v1/developers/:id", get(get_developer))
         .route("/v1/search", get(search_skills))
         .route("/v1/featured", get(featured_skills))
@@ -142,12 +145,14 @@ async fn list_skills(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ListSkillsParams>,
 ) -> std::result::Result<impl IntoResponse, MarketplaceError> {
-    let category = params.category
+    let category = params
+        .category
         .as_deref()
         .map(|c| c.parse::<SkillCategory>())
         .transpose()?;
 
-    let tags: Vec<String> = params.tags
+    let tags: Vec<String> = params
+        .tags
         .as_deref()
         .unwrap_or("")
         .split(',')
@@ -184,7 +189,9 @@ async fn get_skill(
     State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
 ) -> std::result::Result<impl IntoResponse, MarketplaceError> {
-    let skill = state.db.get_skill(id)?
+    let skill = state
+        .db
+        .get_skill(id)?
         .ok_or(MarketplaceError::SkillNotFound(id))?;
     Ok(ApiResponse::ok(skill))
 }
@@ -204,7 +211,10 @@ async fn submit_skill(
     // Size check: 50 MB limit
     const MAX_WASM_SIZE: usize = 50 * 1024 * 1024;
     if wasm_bytes.len() > MAX_WASM_SIZE {
-        return Err(MarketplaceError::PackageTooLarge { size: wasm_bytes.len(), limit: MAX_WASM_SIZE });
+        return Err(MarketplaceError::PackageTooLarge {
+            size: wasm_bytes.len(),
+            limit: MAX_WASM_SIZE,
+        });
     }
 
     let category = req.category.parse::<SkillCategory>()?;
@@ -216,7 +226,10 @@ async fn submit_skill(
     let initial_status = if scan_result.passed {
         ReviewStatus::AutoScanPassed
     } else {
-        warn!("Skill '{}' failed auto-scan: score={}", req.name, scan_result.risk_score);
+        warn!(
+            "Skill '{}' failed auto-scan: score={}",
+            req.name, scan_result.risk_score
+        );
         ReviewStatus::AutoScanFailed
     };
 
@@ -242,10 +255,25 @@ async fn submit_skill(
     };
 
     state.db.insert_skill(&skill)?;
-    state.db.store_package(skill.id, &wasm_bytes, &signature, &signer_pubkey, &req.manifest_hash)?;
-    state.db.log_action("skill", &skill.id.to_string(), "submitted", Some(&req.author_id), None)?;
+    state.db.store_package(
+        skill.id,
+        &wasm_bytes,
+        &signature,
+        &signer_pubkey,
+        &req.manifest_hash,
+    )?;
+    state.db.log_action(
+        "skill",
+        &skill.id.to_string(),
+        "submitted",
+        Some(&req.author_id),
+        None,
+    )?;
 
-    info!("Skill {} ({}) submitted by {}", skill.id, skill.name, skill.author_name);
+    info!(
+        "Skill {} ({}) submitted by {}",
+        skill.id, skill.name, skill.author_name
+    );
 
     Ok((StatusCode::CREATED, ApiResponse::ok(skill)))
 }
@@ -254,7 +282,9 @@ async fn download_skill(
     State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
 ) -> std::result::Result<impl IntoResponse, MarketplaceError> {
-    let skill = state.db.get_skill(id)?
+    let skill = state
+        .db
+        .get_skill(id)?
         .ok_or(MarketplaceError::SkillNotFound(id))?;
 
     if skill.review_status != ReviewStatus::Approved {
@@ -263,7 +293,9 @@ async fn download_skill(
         ));
     }
 
-    let wasm_bytes = state.db.get_package_bytes(id)?
+    let wasm_bytes = state
+        .db
+        .get_package_bytes(id)?
         .ok_or(MarketplaceError::SkillNotFound(id))?;
 
     state.db.increment_download_count(id)?;
@@ -271,7 +303,10 @@ async fn download_skill(
     let response = axum::response::Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", "application/wasm")
-        .header("Content-Disposition", format!("attachment; filename=\"{}.wasm\"", skill.name))
+        .header(
+            "Content-Disposition",
+            format!("attachment; filename=\"{}.wasm\"", skill.name),
+        )
         .header("Content-Length", wasm_bytes.len().to_string())
         .body(axum::body::Body::from(wasm_bytes))
         .unwrap();
@@ -291,7 +326,9 @@ async fn submit_review(
     let reviewer_id = Uuid::parse_str(&req.reviewer_id)
         .map_err(|_| MarketplaceError::InvalidCategory("invalid reviewer_id".to_string()))?;
 
-    state.db.get_skill(skill_id)?
+    state
+        .db
+        .get_skill(skill_id)?
         .ok_or(MarketplaceError::SkillNotFound(skill_id))?;
 
     let review = Review {
@@ -312,7 +349,9 @@ async fn list_reviews(
     State(state): State<Arc<AppState>>,
     Path(skill_id): Path<Uuid>,
 ) -> std::result::Result<impl IntoResponse, MarketplaceError> {
-    state.db.get_skill(skill_id)?
+    state
+        .db
+        .get_skill(skill_id)?
         .ok_or(MarketplaceError::SkillNotFound(skill_id))?;
     let reviews = state.db.list_reviews(skill_id)?;
     Ok(ApiResponse::ok(reviews))
@@ -322,7 +361,9 @@ async fn get_developer(
     State(state): State<Arc<AppState>>,
     Path(id): Path<Uuid>,
 ) -> std::result::Result<impl IntoResponse, MarketplaceError> {
-    let dev = state.db.get_developer(id)?
+    let dev = state
+        .db
+        .get_developer(id)?
         .ok_or(MarketplaceError::DeveloperNotFound(id))?;
     Ok(ApiResponse::ok(dev))
 }
@@ -356,7 +397,10 @@ async fn login(
     // Simplified auth: in production, verify hashed password against DB
     // Here we return a placeholder JWT structure
     let _ = state.jwt_secret.as_str(); // used in real JWT signing
-    warn!("Login attempt for user '{}' - using placeholder auth", req.username);
+    warn!(
+        "Login attempt for user '{}' - using placeholder auth",
+        req.username
+    );
 
     // Real implementation would: query developer by username, verify bcrypt hash,
     // then sign a JWT with exp claim using the jwt_secret
@@ -386,7 +430,10 @@ fn decode_base64_simple(input: &str) -> std::result::Result<Vec<u8>, String> {
     let chars: Vec<u8> = input.bytes().filter(|&b| b != b'=').collect();
     let table: &[i8; 128] = &{
         let mut t = [-1i8; 128];
-        for (i, &c) in b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".iter().enumerate() {
+        for (i, &c) in b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+            .iter()
+            .enumerate()
+        {
             t[c as usize] = i as i8;
         }
         t
@@ -396,9 +443,9 @@ fn decode_base64_simple(input: &str) -> std::result::Result<Vec<u8>, String> {
     let mut i = 0;
     while i + 3 < chars.len() {
         let a = table.get(chars[i] as usize).copied().unwrap_or(-1);
-        let b = table.get(chars[i+1] as usize).copied().unwrap_or(-1);
-        let c = table.get(chars[i+2] as usize).copied().unwrap_or(-1);
-        let d = table.get(chars[i+3] as usize).copied().unwrap_or(-1);
+        let b = table.get(chars[i + 1] as usize).copied().unwrap_or(-1);
+        let c = table.get(chars[i + 2] as usize).copied().unwrap_or(-1);
+        let d = table.get(chars[i + 3] as usize).copied().unwrap_or(-1);
         if a < 0 || b < 0 || c < 0 || d < 0 {
             return Err("invalid base64 character".to_string());
         }
@@ -412,7 +459,7 @@ fn decode_base64_simple(input: &str) -> std::result::Result<Vec<u8>, String> {
 }
 
 fn hex_decode(s: &str) -> std::result::Result<Vec<u8>, String> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err("odd hex length".to_string());
     }
     (0..s.len())

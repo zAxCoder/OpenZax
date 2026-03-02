@@ -171,7 +171,12 @@ impl OrgManager {
         })
     }
 
-    pub fn create_org(&self, name: &str, slug: &str, plan: OrgPlan) -> Result<Organization, OrgError> {
+    pub fn create_org(
+        &self,
+        name: &str,
+        slug: &str,
+        plan: OrgPlan,
+    ) -> Result<Organization, OrgError> {
         let org = Organization {
             id: Uuid::new_v4(),
             name: name.to_string(),
@@ -207,7 +212,9 @@ impl OrgManager {
              FROM organizations WHERE id = ?1",
         )?;
         let mut rows = stmt.query(params![org_id.to_string()])?;
-        let row = rows.next()?.ok_or_else(|| OrgError::OrgNotFound(org_id.to_string()))?;
+        let row = rows
+            .next()?
+            .ok_or_else(|| OrgError::OrgNotFound(org_id.to_string()))?;
 
         let plan_str: String = row.get(3)?;
         let plan = match plan_str.as_str() {
@@ -307,10 +314,7 @@ impl OrgManager {
             "UPDATE organizations SET used_seats = used_seats + 1 WHERE id = ?1",
             params![org_id_str],
         )?;
-        conn.execute(
-            "DELETE FROM invitations WHERE token = ?1",
-            params![token],
-        )?;
+        conn.execute("DELETE FROM invitations WHERE token = ?1", params![token])?;
 
         Ok(OrgMember {
             user_id: user_id.to_string(),
@@ -400,9 +404,8 @@ impl OrgManager {
         let conn = self.conn.lock().unwrap();
 
         let period = Utc::now().format("%Y-%m").to_string();
-        let mut stmt = conn.prepare(
-            "SELECT metric, value FROM org_usage WHERE org_id = ?1 AND period = ?2",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT metric, value FROM org_usage WHERE org_id = ?1 AND period = ?2")?;
         let rows = stmt.query_map(params![org_id.to_string(), period], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
         })?;

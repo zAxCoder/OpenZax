@@ -67,6 +67,7 @@ impl EndpointStatus {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s {
             "online" => EndpointStatus::Online,
@@ -189,7 +190,8 @@ impl ConfigVersioning {
                 description: row.get(5)?,
             })
         })?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(FleetError::from)
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(FleetError::from)
     }
 
     pub fn rollback(&self, org_id: &Uuid, version_id: &Uuid) -> Result<FleetPolicy, FleetError> {
@@ -206,17 +208,15 @@ impl ConfigVersioning {
         Ok(policy)
     }
 
-    pub fn diff(
-        &self,
-        version_a: &Uuid,
-        version_b: &Uuid,
-    ) -> Result<Vec<String>, FleetError> {
+    pub fn diff(&self, version_a: &Uuid, version_b: &Uuid) -> Result<Vec<String>, FleetError> {
         let conn = self.conn.lock().unwrap();
         let get_config = |vid: &Uuid| -> Result<serde_json::Value, FleetError> {
             let mut stmt = conn
                 .prepare("SELECT config_json FROM config_versions WHERE version_id = ?1")
                 .map_err(FleetError::from)?;
-            let mut rows = stmt.query(params![vid.to_string()]).map_err(FleetError::from)?;
+            let mut rows = stmt
+                .query(params![vid.to_string()])
+                .map_err(FleetError::from)?;
             let row = rows
                 .next()
                 .map_err(FleetError::from)?
@@ -336,11 +336,7 @@ impl FleetManager {
         Ok(endpoint)
     }
 
-    pub fn heartbeat(
-        &self,
-        endpoint_id: &Uuid,
-        status: EndpointStatus,
-    ) -> Result<(), FleetError> {
+    pub fn heartbeat(&self, endpoint_id: &Uuid, status: EndpointStatus) -> Result<(), FleetError> {
         let conn = self.conn.lock().unwrap();
         let updated = conn.execute(
             "UPDATE agent_endpoints SET status = ?1, last_seen = ?2 WHERE id = ?3",
@@ -402,8 +398,9 @@ impl FleetManager {
             })
         })?;
 
-        let mut endpoints: Vec<AgentEndpoint> =
-            rows.collect::<Result<Vec<_>, _>>().map_err(FleetError::from)?;
+        let mut endpoints: Vec<AgentEndpoint> = rows
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(FleetError::from)?;
 
         if let Some(f) = filter {
             if let Some(status) = f.status {
@@ -427,7 +424,12 @@ impl FleetManager {
     ) -> Result<Uuid, FleetError> {
         let deployment_id = Uuid::new_v4();
         let conn = self.conn.lock().unwrap();
-        let targets_json = serde_json::to_string(&target_endpoints.iter().map(|u| u.to_string()).collect::<Vec<_>>())?;
+        let targets_json = serde_json::to_string(
+            &target_endpoints
+                .iter()
+                .map(|u| u.to_string())
+                .collect::<Vec<_>>(),
+        )?;
         conn.execute(
             "INSERT INTO pending_deployments (id, org_id, skill_id, target_endpoints, created_at, status)
              VALUES (?1, ?2, ?3, ?4, ?5, 'pending')",
@@ -479,9 +481,8 @@ impl FleetManager {
         // In production, this would push an update command to all endpoints via a message queue
         let endpoints = {
             let conn = self.conn.lock().unwrap();
-            let mut stmt = conn.prepare(
-                "SELECT id FROM agent_endpoints WHERE org_id = ?1 AND version != ?2",
-            )?;
+            let mut stmt =
+                conn.prepare("SELECT id FROM agent_endpoints WHERE org_id = ?1 AND version != ?2")?;
             let ids: Vec<String> = stmt
                 .query_map(params![org_id.to_string(), target_version], |row| {
                     row.get(0)
@@ -500,9 +501,8 @@ impl FleetManager {
 
     pub fn health_dashboard(&self, org_id: &Uuid) -> Result<FleetHealthReport, FleetError> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT status, version FROM agent_endpoints WHERE org_id = ?1",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT status, version FROM agent_endpoints WHERE org_id = ?1")?;
         let rows = stmt.query_map(params![org_id.to_string()], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })?;

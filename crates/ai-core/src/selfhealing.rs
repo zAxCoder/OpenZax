@@ -98,19 +98,37 @@ impl ErrorClassifier {
     pub fn classify(error_str: &str) -> ErrorClass {
         let lower = error_str.to_lowercase();
 
-        if lower.contains("rate limit") || lower.contains("429") || lower.contains("too many requests") {
+        if lower.contains("rate limit")
+            || lower.contains("429")
+            || lower.contains("too many requests")
+        {
             return ErrorClass::RateLimited;
         }
-        if lower.contains("unauthorized") || lower.contains("401") || lower.contains("forbidden") || lower.contains("403") {
+        if lower.contains("unauthorized")
+            || lower.contains("401")
+            || lower.contains("forbidden")
+            || lower.contains("403")
+        {
             return ErrorClass::AuthFailure;
         }
-        if lower.contains("timeout") || lower.contains("connection") || lower.contains("network") || lower.contains("503") {
+        if lower.contains("timeout")
+            || lower.contains("connection")
+            || lower.contains("network")
+            || lower.contains("503")
+        {
             return ErrorClass::Transient;
         }
-        if lower.contains("out of memory") || lower.contains("quota exceeded") || lower.contains("context length") {
+        if lower.contains("out of memory")
+            || lower.contains("quota exceeded")
+            || lower.contains("context length")
+        {
             return ErrorClass::ResourceExhausted;
         }
-        if lower.contains("invalid") || lower.contains("parse error") || lower.contains("bad request") || lower.contains("400") {
+        if lower.contains("invalid")
+            || lower.contains("parse error")
+            || lower.contains("bad request")
+            || lower.contains("400")
+        {
             return ErrorClass::InvalidInput;
         }
         if lower.contains("fatal") || lower.contains("panic") || lower.contains("unrecoverable") {
@@ -255,13 +273,7 @@ impl HealingOrchestrator {
         conn.execute(
             "INSERT INTO checkpoints (id, agent_id, created_at, state_json, tool_calls_count)
              VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![
-                id,
-                agent_id,
-                now.to_rfc3339(),
-                state_json,
-                tool_calls_count,
-            ],
+            params![id, agent_id, now.to_rfc3339(), state_json, tool_calls_count,],
         )?;
 
         tracing::debug!(
@@ -285,8 +297,7 @@ impl HealingOrchestrator {
         checkpoint_id: &str,
     ) -> Result<serde_json::Value, HealingError> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt =
-            conn.prepare("SELECT state_json FROM checkpoints WHERE id = ?1")?;
+        let mut stmt = conn.prepare("SELECT state_json FROM checkpoints WHERE id = ?1")?;
         let mut rows = stmt.query(params![checkpoint_id])?;
         let row = rows
             .next()?
@@ -313,7 +324,8 @@ impl HealingOrchestrator {
                 tool_calls_at_checkpoint: row.get::<_, i64>(4)? as u32,
             })
         })?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(HealingError::from)
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(HealingError::from)
     }
 
     pub fn prune_old_checkpoints(

@@ -221,7 +221,11 @@ pub struct PortDef {
 
 impl PortDef {
     pub fn new(name: impl Into<String>, data_type: DataType, required: bool) -> Self {
-        Self { name: name.into(), data_type, required }
+        Self {
+            name: name.into(),
+            data_type,
+            required,
+        }
     }
 }
 
@@ -253,7 +257,12 @@ pub struct WorkflowEdge {
 }
 
 impl WorkflowEdge {
-    pub fn new(from_node: Uuid, from_port: impl Into<String>, to_node: Uuid, to_port: impl Into<String>) -> Self {
+    pub fn new(
+        from_node: Uuid,
+        from_port: impl Into<String>,
+        to_node: Uuid,
+        to_port: impl Into<String>,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
             from_node,
@@ -307,19 +316,21 @@ pub struct WorkflowGraph {
 
 impl WorkflowGraph {
     pub fn build(workflow: &Workflow) -> GraphResult<Self> {
-        let nodes: HashMap<Uuid, WorkflowNode> = workflow.nodes.iter()
-            .map(|n| (n.id, n.clone()))
-            .collect();
+        let nodes: HashMap<Uuid, WorkflowNode> =
+            workflow.nodes.iter().map(|n| (n.id, n.clone())).collect();
 
         // Validate all edge endpoints exist and ports are defined
-        let mut adjacency: HashMap<Uuid, Vec<Uuid>> = nodes.keys().map(|&id| (id, Vec::new())).collect();
+        let mut adjacency: HashMap<Uuid, Vec<Uuid>> =
+            nodes.keys().map(|&id| (id, Vec::new())).collect();
         let mut in_degree: HashMap<Uuid, usize> = nodes.keys().map(|&id| (id, 0)).collect();
         let mut seen_edges: HashSet<(Uuid, String, Uuid, String)> = HashSet::new();
 
         for edge in &workflow.edges {
-            let from_node = nodes.get(&edge.from_node)
+            let from_node = nodes
+                .get(&edge.from_node)
                 .ok_or(GraphError::NodeNotFound(edge.from_node))?;
-            let to_node = nodes.get(&edge.to_node)
+            let to_node = nodes
+                .get(&edge.to_node)
                 .ok_or(GraphError::NodeNotFound(edge.to_node))?;
 
             if !from_node.has_output_port(&edge.from_port) {
@@ -335,13 +346,24 @@ impl WorkflowGraph {
                 });
             }
 
-            let edge_key = (edge.from_node, edge.from_port.clone(), edge.to_node, edge.to_port.clone());
+            let edge_key = (
+                edge.from_node,
+                edge.from_port.clone(),
+                edge.to_node,
+                edge.to_port.clone(),
+            );
             if seen_edges.contains(&edge_key) {
-                return Err(GraphError::DuplicateEdge { from: edge.from_node, to: edge.to_node });
+                return Err(GraphError::DuplicateEdge {
+                    from: edge.from_node,
+                    to: edge.to_node,
+                });
             }
             seen_edges.insert(edge_key);
 
-            adjacency.entry(edge.from_node).or_default().push(edge.to_node);
+            adjacency
+                .entry(edge.from_node)
+                .or_default()
+                .push(edge.to_node);
             *in_degree.entry(edge.to_node).or_insert(0) += 1;
         }
 
@@ -366,7 +388,8 @@ impl WorkflowGraph {
     /// Kahn's algorithm for topological sort - also detects cycles
     pub fn topological_sort(&self) -> GraphResult<Vec<Uuid>> {
         let mut in_degree = self.in_degree.clone();
-        let mut queue: VecDeque<Uuid> = in_degree.iter()
+        let mut queue: VecDeque<Uuid> = in_degree
+            .iter()
             .filter(|(_, &deg)| deg == 0)
             .map(|(&id, _)| id)
             .collect();
@@ -389,7 +412,8 @@ impl WorkflowGraph {
 
         if order.len() != self.nodes.len() {
             // Find a node still with positive in-degree to report
-            let cycle_node = in_degree.iter()
+            let cycle_node = in_degree
+                .iter()
                 .find(|(_, &d)| d > 0)
                 .map(|(&id, _)| id)
                 .unwrap_or_else(Uuid::nil);
@@ -405,7 +429,9 @@ impl WorkflowGraph {
         let mut depth: HashMap<Uuid, usize> = HashMap::new();
 
         for &id in &order {
-            let max_pred_depth = self.edges.iter()
+            let max_pred_depth = self
+                .edges
+                .iter()
                 .filter(|e| e.to_node == id)
                 .map(|e| depth.get(&e.from_node).copied().unwrap_or(0) + 1)
                 .max()

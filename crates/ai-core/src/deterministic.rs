@@ -77,10 +77,7 @@ pub struct ExecutionRecorder {
 
 impl ExecutionRecorder {
     pub fn new(path: &Path) -> Result<Self, DeterministicError> {
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)?;
+        let file = OpenOptions::new().create(true).append(true).open(path)?;
         Ok(Self {
             file: Arc::new(Mutex::new(file)),
         })
@@ -173,11 +170,7 @@ impl ExecutionReplayer {
     }
 
     pub fn get_all_tool_calls(&self) -> Vec<ToolCallRecord> {
-        self.tool_index
-            .values()
-            .flatten()
-            .cloned()
-            .collect()
+        self.tool_index.values().flatten().cloned().collect()
     }
 
     pub fn replay_tool_call(
@@ -187,24 +180,23 @@ impl ExecutionReplayer {
     ) -> Result<serde_json::Value, DeterministicError> {
         let param_hash = Self::hash_params(params);
         let key = (tool_name.to_string(), param_hash);
-        let records = self.tool_index.get(&key).ok_or_else(|| {
-            DeterministicError::NotFound(format!("{}({:?})", tool_name, params))
-        })?;
+        let records = self
+            .tool_index
+            .get(&key)
+            .ok_or_else(|| DeterministicError::NotFound(format!("{}({:?})", tool_name, params)))?;
 
         let mut cursors = self.cursors.lock().unwrap();
-        let idx = cursors.entry(format!("{}-{}", tool_name, key.1)).or_insert(0);
-        let record = records
-            .get(*idx)
-            .unwrap_or_else(|| records.last().unwrap());
+        let idx = cursors
+            .entry(format!("{}-{}", tool_name, key.1))
+            .or_insert(0);
+        let record = records.get(*idx).unwrap_or_else(|| records.last().unwrap());
         *idx = (*idx + 1).min(records.len().saturating_sub(1));
 
         Ok(record.result.clone())
     }
 
     pub fn replay_llm_call(&self, prompt_hash: &str) -> Option<&str> {
-        self.llm_index
-            .get(prompt_hash)
-            .map(|r| r.response.as_str())
+        self.llm_index.get(prompt_hash).map(|r| r.response.as_str())
     }
 
     pub fn verify_replay(

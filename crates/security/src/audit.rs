@@ -200,13 +200,8 @@ impl AuditLog {
         let timestamp = Utc::now();
         let actor_id = actor_id.into();
 
-        let hash = AuditEntry::compute_hash(
-            &prev_hash,
-            &timestamp,
-            &event_type,
-            &actor_id,
-            &metadata,
-        );
+        let hash =
+            AuditEntry::compute_hash(&prev_hash, &timestamp, &event_type, &actor_id, &metadata);
 
         let entry = AuditEntry {
             entry_id: Uuid::new_v4(),
@@ -266,9 +261,7 @@ impl AuditLog {
             let (entry_id, timestamp_str, event_type_str, actor_id, metadata_str, prev_hash, hash) =
                 row?;
 
-            let entry_uuid = entry_id
-                .parse::<Uuid>()
-                .unwrap_or_else(|_| Uuid::nil());
+            let entry_uuid = entry_id.parse::<Uuid>().unwrap_or_else(|_| Uuid::nil());
 
             if prev_hash != expected_prev {
                 return Err(Error::BrokenChain(entry_uuid));
@@ -277,8 +270,7 @@ impl AuditLog {
             let timestamp = timestamp_str
                 .parse::<DateTime<Utc>>()
                 .unwrap_or_else(|_| Utc::now());
-            let metadata: Value =
-                serde_json::from_str(&metadata_str).unwrap_or(Value::Null);
+            let metadata: Value = serde_json::from_str(&metadata_str).unwrap_or(Value::Null);
 
             // Reconstruct a dummy event for hash computation — we only need the
             // string representation which we have directly.
@@ -358,8 +350,7 @@ impl AuditLog {
                 let event_str: String = row.get(2)?;
                 let event_type = parse_event_type(&event_str);
                 let metadata_str: String = row.get(5)?;
-                let metadata: Value =
-                    serde_json::from_str(&metadata_str).unwrap_or(Value::Null);
+                let metadata: Value = serde_json::from_str(&metadata_str).unwrap_or(Value::Null);
                 let ts_str: String = row.get(1)?;
                 let timestamp = ts_str
                     .parse::<DateTime<Utc>>()
@@ -391,9 +382,8 @@ impl AuditLog {
     /// Exports all audit entries as CSV.
     pub fn export_csv(&self) -> Result<String> {
         let entries = self.query(&AuditQuery::default())?;
-        let mut csv = String::from(
-            "entry_id,timestamp,event_type,actor_id,target_id,prev_hash,hash\n",
-        );
+        let mut csv =
+            String::from("entry_id,timestamp,event_type,actor_id,target_id,prev_hash,hash\n");
         for e in &entries {
             csv.push_str(&format!(
                 "{},{},{},{},{},{},{}\n",

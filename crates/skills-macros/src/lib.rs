@@ -3,7 +3,7 @@ use quote::quote;
 use syn::{parse_macro_input, ItemFn, ItemStruct};
 
 /// Marks a function as a skill entry point
-/// 
+///
 /// # Example
 /// ```ignore
 /// #[skill_main]
@@ -16,10 +16,10 @@ use syn::{parse_macro_input, ItemFn, ItemStruct};
 pub fn skill_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
     let fn_name = &input.sig.ident;
-    
+
     let expanded = quote! {
         #input
-        
+
         #[no_mangle]
         pub extern "C" fn _skill_entry() -> i32 {
             match #fn_name() {
@@ -28,7 +28,7 @@ pub fn skill_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
     };
-    
+
     TokenStream::from(expanded)
 }
 
@@ -37,7 +37,7 @@ pub fn skill_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn derive_skill(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemStruct);
     let name = &input.ident;
-    
+
     let expanded = quote! {
         impl Skill for #name {
             fn name(&self) -> &str {
@@ -45,6 +45,6 @@ pub fn derive_skill(input: TokenStream) -> TokenStream {
             }
         }
     };
-    
+
     TokenStream::from(expanded)
 }

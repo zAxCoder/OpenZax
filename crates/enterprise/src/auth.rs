@@ -300,8 +300,10 @@ impl AuthManager {
         );
 
         let encoded = BASE64.encode(authn_request.as_bytes());
-        let url_encoded =
-            encoded.replace('+', "%2B").replace('/', "%2F").replace('=', "%3D");
+        let url_encoded = encoded
+            .replace('+', "%2B")
+            .replace('/', "%2F")
+            .replace('=', "%3D");
         let redirect_url = format!(
             "{}?SAMLRequest={}&RelayState={}",
             config.metadata_url, url_encoded, relay_state
@@ -325,12 +327,14 @@ impl AuthManager {
         let decoded = BASE64
             .decode(response_b64)
             .map_err(|e| AuthError::SamlInvalid(format!("base64 decode: {e}")))?;
-        let xml = String::from_utf8(decoded)
-            .map_err(|e| AuthError::SamlInvalid(format!("utf8: {e}")))?;
+        let xml =
+            String::from_utf8(decoded).map_err(|e| AuthError::SamlInvalid(format!("utf8: {e}")))?;
 
         // Verify the response contains a Success status code
         if !xml.contains("urn:oasis:names:tc:SAML:2.0:status:Success") {
-            return Err(AuthError::SamlInvalid("Response status is not Success".into()));
+            return Err(AuthError::SamlInvalid(
+                "Response status is not Success".into(),
+            ));
         }
 
         // Extract NameID as the user identifier

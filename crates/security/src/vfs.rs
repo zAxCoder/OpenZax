@@ -100,14 +100,14 @@ impl VfsRouter {
     }
 
     pub fn add_mount(&mut self, skill_id: impl Into<String>, entry: VfsEntry) {
-        self.mounts
-            .entry(skill_id.into())
-            .or_default()
-            .push(entry);
+        self.mounts.entry(skill_id.into()).or_default().push(entry);
     }
 
     pub fn mounts_for(&self, skill_id: &str) -> &[VfsEntry] {
-        self.mounts.get(skill_id).map(|v| v.as_slice()).unwrap_or(&[])
+        self.mounts
+            .get(skill_id)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 }
 
@@ -190,11 +190,7 @@ impl VfsOverlay {
 
     /// Registers or overrides the sandbox root for a skill. The directory is
     /// created if it does not exist.
-    pub fn set_sandbox_root(
-        &mut self,
-        skill_id: impl Into<String>,
-        root: PathBuf,
-    ) -> Result<()> {
+    pub fn set_sandbox_root(&mut self, skill_id: impl Into<String>, root: PathBuf) -> Result<()> {
         fs::create_dir_all(&root)?;
         self.sandbox_roots.insert(skill_id.into(), root);
         Ok(())
@@ -275,14 +271,12 @@ impl VfsOverlay {
             // If the current accumulated path is a symlink, resolve it and
             // verify the target remains within root.
             if current.is_symlink() {
-                let target = fs::read_link(&current).map_err(|_| Error::SymlinkTraversal(current.clone()))?;
+                let target = fs::read_link(&current)
+                    .map_err(|_| Error::SymlinkTraversal(current.clone()))?;
                 let resolved = if target.is_absolute() {
                     target
                 } else {
-                    current
-                        .parent()
-                        .unwrap_or(Path::new("/"))
-                        .join(target)
+                    current.parent().unwrap_or(Path::new("/")).join(target)
                 };
                 if !resolved.starts_with(root) {
                     return Err(Error::SymlinkTraversal(resolved));
@@ -301,4 +295,3 @@ impl VfsOverlay {
 fn strip_leading_slash(p: &Path) -> &Path {
     p.strip_prefix("/").unwrap_or(p)
 }
-

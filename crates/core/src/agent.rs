@@ -1,11 +1,11 @@
-use crate::{Error, Result};
 use crate::event::{Event, EventBus};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+use crate::{Error, Result};
 use chrono::Utc;
 use futures_util::StreamExt;
-use std::sync::Mutex;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Mutex;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
@@ -120,7 +120,8 @@ impl Agent {
             "max_tokens": max_tok,
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&api_url)
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
@@ -136,7 +137,7 @@ impl Agent {
         }
 
         let response_json: serde_json::Value = response.json().await?;
-        
+
         let content = response_json["choices"][0]["message"]["content"]
             .as_str()
             .ok_or_else(|| Error::Agent("Invalid response format".to_string()))?
@@ -289,7 +290,11 @@ impl Agent {
                             .map(|e| {
                                 let name = e.file_name().to_string_lossy().into_owned();
                                 let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
-                                if is_dir { format!("{}/", name) } else { name }
+                                if is_dir {
+                                    format!("{}/", name)
+                                } else {
+                                    name
+                                }
                             })
                             .collect();
                         items.sort();
@@ -309,9 +314,7 @@ impl Agent {
                     .args(["-NoProfile", "-Command", cmd])
                     .output();
                 #[cfg(not(windows))]
-                let output = std::process::Command::new("sh")
-                    .args(["-c", cmd])
-                    .output();
+                let output = std::process::Command::new("sh").args(["-c", cmd]).output();
 
                 match output {
                     Ok(o) => {
@@ -319,9 +322,13 @@ impl Agent {
                         let stderr = String::from_utf8_lossy(&o.stderr).to_string();
                         let exit_code = o.status.code().unwrap_or(-1);
                         let mut result = String::new();
-                        if !stdout.is_empty() { result.push_str(&stdout); }
+                        if !stdout.is_empty() {
+                            result.push_str(&stdout);
+                        }
                         if !stderr.is_empty() {
-                            if !result.is_empty() { result.push('\n'); }
+                            if !result.is_empty() {
+                                result.push('\n');
+                            }
                             result.push_str(&format!("STDERR: {}", stderr));
                         }
                         if result.is_empty() {
@@ -386,7 +393,8 @@ impl Agent {
             "tool_choice": "auto",
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(api_url)
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Content-Type", "application/json")
@@ -402,22 +410,27 @@ impl Agent {
         }
 
         use tokio::io::AsyncBufReadExt;
-        let mut lines = tokio::io::BufReader::new(
-            tokio_util::io::StreamReader::new(
-                response.bytes_stream().map(|r: std::result::Result<bytes::Bytes, reqwest::Error>| {
-                    r.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
-                })
-            )
-        ).lines();
+        let mut lines = tokio::io::BufReader::new(tokio_util::io::StreamReader::new(
+            response
+                .bytes_stream()
+                .map(|r: std::result::Result<bytes::Bytes, reqwest::Error>| {
+                    r.map_err(std::io::Error::other)
+                }),
+        ))
+        .lines();
 
         let mut full_content = String::new();
         // index → (id, name, args_buf)
         let mut tc_map: HashMap<usize, (String, String, String)> = HashMap::new();
 
         while let Some(line) = lines.next_line().await? {
-            if !line.starts_with("data: ") { continue; }
+            if !line.starts_with("data: ") {
+                continue;
+            }
             let data = &line[6..];
-            if data == "[DONE]" { break; }
+            if data == "[DONE]" {
+                break;
+            }
 
             let json: serde_json::Value = match serde_json::from_str(data) {
                 Ok(v) => v,
@@ -445,10 +458,18 @@ impl Agent {
             if let Some(tc_deltas) = delta["tool_calls"].as_array() {
                 for tc_delta in tc_deltas {
                     let idx = tc_delta["index"].as_u64().unwrap_or(0) as usize;
-                    let entry = tc_map.entry(idx).or_insert_with(|| (String::new(), String::new(), String::new()));
-                    if let Some(id) = tc_delta["id"].as_str() { entry.0 = id.to_string(); }
-                    if let Some(name) = tc_delta["function"]["name"].as_str() { entry.1.push_str(name); }
-                    if let Some(args) = tc_delta["function"]["arguments"].as_str() { entry.2.push_str(args); }
+                    let entry = tc_map
+                        .entry(idx)
+                        .or_insert_with(|| (String::new(), String::new(), String::new()));
+                    if let Some(id) = tc_delta["id"].as_str() {
+                        entry.0 = id.to_string();
+                    }
+                    if let Some(name) = tc_delta["function"]["name"].as_str() {
+                        entry.1.push_str(name);
+                    }
+                    if let Some(args) = tc_delta["function"]["arguments"].as_str() {
+                        entry.2.push_str(args);
+                    }
                 }
             }
         }
@@ -459,11 +480,13 @@ impl Agent {
         let tool_calls: Vec<serde_json::Value> = tc_indices
             .iter()
             .filter_map(|idx| tc_map.get(idx))
-            .map(|(id, name, args)| serde_json::json!({
-                "id": id,
-                "type": "function",
-                "function": { "name": name, "arguments": args }
-            }))
+            .map(|(id, name, args)| {
+                serde_json::json!({
+                    "id": id,
+                    "type": "function",
+                    "function": { "name": name, "arguments": args }
+                })
+            })
             .collect();
 
         Ok((full_content, tool_calls))
@@ -497,9 +520,9 @@ impl Agent {
 
         // Tool calling loop (max 8 rounds)
         for _round in 0..8 {
-            let (content, tool_calls) = self.stream_with_tools(
-                &messages, &api_url, &api_key, &model, temp, max_tok,
-            ).await?;
+            let (content, tool_calls) = self
+                .stream_with_tools(&messages, &api_url, &api_key, &model, temp, max_tok)
+                .await?;
 
             if tool_calls.is_empty() {
                 // No tool calls - done
@@ -518,8 +541,8 @@ impl Agent {
                 let tool_name = tc["function"]["name"].as_str().unwrap_or("unknown");
                 let args_str = tc["function"]["arguments"].as_str().unwrap_or("{}");
                 let tc_id = tc["id"].as_str().unwrap_or("call_0");
-                let args: serde_json::Value = serde_json::from_str(args_str)
-                    .unwrap_or(serde_json::json!({}));
+                let args: serde_json::Value =
+                    serde_json::from_str(args_str).unwrap_or(serde_json::json!({}));
 
                 // Notify UI about tool execution
                 let preview = if args_str.len() > 80 {

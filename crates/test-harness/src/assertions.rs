@@ -87,8 +87,7 @@ pub fn assert_no_fs_writes(host: &MockHost) {
 /// Assert that the skill emitted a specific named event.
 pub fn assert_event_emitted(host: &MockHost, event_name: &str) {
     let emitted = host.call_log.iter().any(|r| {
-        r.function_name == "__openzax_emit_event"
-            && r.args["name"].as_str() == Some(event_name)
+        r.function_name == "__openzax_emit_event" && r.args["name"].as_str() == Some(event_name)
     });
     if !emitted {
         panic!(
@@ -100,9 +99,10 @@ pub fn assert_event_emitted(host: &MockHost, event_name: &str) {
 
 /// Assert that a specific key was written to the KV store.
 pub fn assert_kv_written(host: &MockHost, key: &str) {
-    let written = host.call_log.iter().any(|r| {
-        r.function_name == "__openzax_kv_put" && r.args["key"].as_str() == Some(key)
-    });
+    let written = host
+        .call_log
+        .iter()
+        .any(|r| r.function_name == "__openzax_kv_put" && r.args["key"].as_str() == Some(key));
     if !written {
         panic!("Expected KV key '{}' to be written, but it was not.", key);
     }
@@ -110,9 +110,10 @@ pub fn assert_kv_written(host: &MockHost, key: &str) {
 
 /// Assert that a specific key was written to the KV store with a specific value.
 pub fn assert_kv_written_with(host: &MockHost, key: &str, expected_value: &str) {
-    let record = host.call_log.iter().find(|r| {
-        r.function_name == "__openzax_kv_put" && r.args["key"].as_str() == Some(key)
-    });
+    let record = host
+        .call_log
+        .iter()
+        .find(|r| r.function_name == "__openzax_kv_put" && r.args["key"].as_str() == Some(key));
     match record {
         None => panic!("Expected KV key '{}' to be written, but it was not.", key),
         Some(r) => {

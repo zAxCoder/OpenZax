@@ -19,8 +19,8 @@ futures = "0.3"
 
 [features]
 default = []
-# llama-cpp feature disabled until llama-cpp-rs is available
-# llama-cpp = ["dep:llama-cpp-rs"]
+llama-cpp = []
+# llama-cpp = ["dep:llama-cpp-rs"]  # Enable when llama-cpp-rs is available
 # cuda = ["llama-cpp-rs?/cuda"]
 # metal = ["llama-cpp-rs?/metal"]
 # vulkan = ["llama-cpp-rs?/vulkan"]

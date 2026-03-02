@@ -51,17 +51,30 @@ pub struct ScanViolation {
 
 impl ScanViolation {
     fn critical(description: impl Into<String>) -> Self {
-        Self { severity: ViolationSeverity::Critical, description: description.into(), line_hint: None }
+        Self {
+            severity: ViolationSeverity::Critical,
+            description: description.into(),
+            line_hint: None,
+        }
     }
 
     fn high(description: impl Into<String>) -> Self {
-        Self { severity: ViolationSeverity::High, description: description.into(), line_hint: None }
+        Self {
+            severity: ViolationSeverity::High,
+            description: description.into(),
+            line_hint: None,
+        }
     }
 
     fn medium(description: impl Into<String>) -> Self {
-        Self { severity: ViolationSeverity::Medium, description: description.into(), line_hint: None }
+        Self {
+            severity: ViolationSeverity::Medium,
+            description: description.into(),
+            line_hint: None,
+        }
     }
 
+    #[allow(dead_code)]
     fn with_hint(mut self, hint: usize) -> Self {
         self.line_hint = Some(hint);
         self
@@ -102,7 +115,9 @@ impl Tier1Scanner {
             violations.extend(pattern_violations);
         }
 
-        let has_critical = violations.iter().any(|v| v.severity == ViolationSeverity::Critical);
+        let has_critical = violations
+            .iter()
+            .any(|v| v.severity == ViolationSeverity::Critical);
         let risk_score = ScanResult::compute_risk_score(&violations);
 
         ScanResult {
@@ -120,12 +135,26 @@ impl Tier1Scanner {
 
         if bytes.len() < 8 {
             violations.push(ScanViolation::critical("WASM binary too small to be valid"));
-            return ScanResult { passed: false, violations, risk_score: 100.0, wasm_size_bytes: bytes.len(), section_count: 0 };
+            return ScanResult {
+                passed: false,
+                violations,
+                risk_score: 100.0,
+                wasm_size_bytes: bytes.len(),
+                section_count: 0,
+            };
         }
 
         if &bytes[0..4] != WASM_MAGIC {
-            violations.push(ScanViolation::critical("Invalid WASM magic bytes - not a WASM module"));
-            return ScanResult { passed: false, violations, risk_score: 100.0, wasm_size_bytes: bytes.len(), section_count: 0 };
+            violations.push(ScanViolation::critical(
+                "Invalid WASM magic bytes - not a WASM module",
+            ));
+            return ScanResult {
+                passed: false,
+                violations,
+                risk_score: 100.0,
+                wasm_size_bytes: bytes.len(),
+                section_count: 0,
+            };
         }
 
         if &bytes[4..8] != WASM_VERSION {
@@ -135,22 +164,39 @@ impl Tier1Scanner {
         if bytes.len() > 50 * 1024 * 1024 {
             violations.push(ScanViolation {
                 severity: ViolationSeverity::Medium,
-                description: format!("WASM binary is very large ({} MB) - may indicate bundled data", bytes.len() / 1024 / 1024),
+                description: format!(
+                    "WASM binary is very large ({} MB) - may indicate bundled data",
+                    bytes.len() / 1024 / 1024
+                ),
                 line_hint: None,
             });
         }
 
         let section_count = self.count_wasm_sections(bytes);
-        debug!("WASM scan: {} bytes, {} sections", bytes.len(), section_count);
+        debug!(
+            "WASM scan: {} bytes, {} sections",
+            bytes.len(),
+            section_count
+        );
 
         if section_count == 0 && bytes.len() > 8 {
-            violations.push(ScanViolation::medium("WASM module has no recognized sections"));
+            violations.push(ScanViolation::medium(
+                "WASM module has no recognized sections",
+            ));
         }
 
         let risk_score = ScanResult::compute_risk_score(&violations);
-        let passed = violations.iter().all(|v| v.severity != ViolationSeverity::Critical);
+        let passed = violations
+            .iter()
+            .all(|v| v.severity != ViolationSeverity::Critical);
 
-        ScanResult { passed, violations, risk_score, wasm_size_bytes: bytes.len(), section_count }
+        ScanResult {
+            passed,
+            violations,
+            risk_score,
+            wasm_size_bytes: bytes.len(),
+            section_count,
+        }
     }
 
     /// Count WASM sections by iterating the binary format
@@ -159,7 +205,9 @@ impl Tier1Scanner {
         let mut pos = 8; // Skip magic + version
 
         while pos < bytes.len() {
-            if pos >= bytes.len() { break; }
+            if pos >= bytes.len() {
+                break;
+            }
             let _section_id = bytes[pos];
             pos += 1;
 
@@ -169,14 +217,20 @@ impl Tier1Scanner {
             pos += size as usize;
             count += 1;
 
-            if count > 10_000 { break; } // Safety limit
+            if count > 10_000 {
+                break;
+            } // Safety limit
         }
 
         count
     }
 
     /// Compare declared WIT imports against manifest permissions
-    pub fn check_declared_permissions(&self, wasm_bytes: &[u8], manifest_permissions: &[String]) -> Vec<ScanViolation> {
+    pub fn check_declared_permissions(
+        &self,
+        wasm_bytes: &[u8],
+        manifest_permissions: &[String],
+    ) -> Vec<ScanViolation> {
         let mut violations = Vec::new();
 
         // Extract import names from WASM binary (section type 2 = import section)
@@ -184,14 +238,14 @@ impl Tier1Scanner {
 
         // Check for imports not declared in manifest
         for import in &wasm_imports {
-            let declared = manifest_permissions.iter().any(|p| {
-                import.contains(p.as_str()) || p.contains(import.as_str())
-            });
+            let declared = manifest_permissions
+                .iter()
+                .any(|p| import.contains(p.as_str()) || p.contains(import.as_str()));
 
             if !declared && self.is_sensitive_import(import) {
-                violations.push(ScanViolation::high(
-                    format!("Undeclared sensitive import detected: '{import}' not in manifest permissions")
-                ));
+                violations.push(ScanViolation::high(format!(
+                    "Undeclared sensitive import detected: '{import}' not in manifest permissions"
+                )));
             }
         }
 
@@ -199,13 +253,14 @@ impl Tier1Scanner {
         for perm in manifest_permissions {
             if perm == "*" || perm == "all" {
                 violations.push(ScanViolation::medium(
-                    "Wildcard permission declared - overly broad access requested"
+                    "Wildcard permission declared - overly broad access requested",
                 ));
             }
             if perm.contains("filesystem") && perm.contains("write") {
                 violations.push(ScanViolation {
                     severity: ViolationSeverity::Medium,
-                    description: "Filesystem write permission requested - ensure this is necessary".to_string(),
+                    description: "Filesystem write permission requested - ensure this is necessary"
+                        .to_string(),
                     line_hint: None,
                 });
             }
@@ -219,7 +274,9 @@ impl Tier1Scanner {
         let mut pos = 8;
 
         while pos < bytes.len() {
-            if pos >= bytes.len() { break; }
+            if pos >= bytes.len() {
+                break;
+            }
             let section_id = bytes[pos];
             pos += 1;
 
@@ -233,7 +290,9 @@ impl Tier1Scanner {
                 imports.extend(self.parse_import_section(section_bytes));
             }
 
-            if pos > bytes.len() { break; }
+            if pos > bytes.len() {
+                break;
+            }
         }
 
         imports
@@ -243,27 +302,37 @@ impl Tier1Scanner {
         let mut imports = Vec::new();
         let mut pos = 0;
 
-        if pos >= section.len() { return imports; }
+        if pos >= section.len() {
+            return imports;
+        }
         let (count, consumed) = decode_leb128_u32(&section[pos..]);
         pos += consumed;
 
         for _ in 0..count.min(1000) {
-            if pos >= section.len() { break; }
+            if pos >= section.len() {
+                break;
+            }
 
             // module name
             let (mod_len, c) = decode_leb128_u32(&section[pos..]);
             pos += c;
-            if pos + mod_len as usize > section.len() { break; }
+            if pos + mod_len as usize > section.len() {
+                break;
+            }
             let mod_name = std::str::from_utf8(&section[pos..pos + mod_len as usize])
                 .unwrap_or("<invalid>")
                 .to_string();
             pos += mod_len as usize;
 
             // field name
-            if pos >= section.len() { break; }
+            if pos >= section.len() {
+                break;
+            }
             let (field_len, c) = decode_leb128_u32(&section[pos..]);
             pos += c;
-            if pos + field_len as usize > section.len() { break; }
+            if pos + field_len as usize > section.len() {
+                break;
+            }
             let field_name = std::str::from_utf8(&section[pos..pos + field_len as usize])
                 .unwrap_or("<invalid>")
                 .to_string();
@@ -272,7 +341,9 @@ impl Tier1Scanner {
             imports.push(format!("{mod_name}::{field_name}"));
 
             // Skip import descriptor (at least 1 byte)
-            if pos < section.len() { pos += 1; }
+            if pos < section.len() {
+                pos += 1;
+            }
         }
 
         imports
@@ -287,7 +358,9 @@ impl Tier1Scanner {
             "sys:exec",
             "env:network",
         ];
-        SENSITIVE_PREFIXES.iter().any(|prefix| import.starts_with(prefix))
+        SENSITIVE_PREFIXES
+            .iter()
+            .any(|prefix| import.starts_with(prefix))
     }
 
     /// Scan for known malicious byte patterns
@@ -296,7 +369,10 @@ impl Tier1Scanner {
 
         for (name, pattern) in SUSPICIOUS_PATTERNS {
             if let Some(offset) = find_subsequence(bytes, pattern) {
-                warn!("Suspicious pattern '{}' detected at offset {}", name, offset);
+                warn!(
+                    "Suspicious pattern '{}' detected at offset {}",
+                    name, offset
+                );
                 violations.push(ScanViolation {
                     severity: ViolationSeverity::Critical,
                     description: format!("Suspicious pattern detected: {name}"),
@@ -333,21 +409,24 @@ impl DependencyAuditor {
         Self
     }
 
-    pub fn audit_dependencies(&self, dependencies: &[(String, String)]) -> Vec<DependencyVulnerability> {
+    pub fn audit_dependencies(
+        &self,
+        dependencies: &[(String, String)],
+    ) -> Vec<DependencyVulnerability> {
         let mut findings = Vec::new();
 
         for (dep_name, dep_version) in dependencies {
             for (vuln_name, vuln_range, cve) in KNOWN_VULNERABLE_DEPS {
-                if dep_name.to_lowercase() == *vuln_name {
-                    if self.version_matches_range(dep_version, vuln_range) {
-                        findings.push(DependencyVulnerability {
-                            dependency: dep_name.clone(),
-                            version: dep_version.clone(),
-                            vulnerable_range: vuln_range.to_string(),
-                            cve_id: cve.to_string(),
-                            severity: ViolationSeverity::High,
-                        });
-                    }
+                if dep_name.to_lowercase() == *vuln_name
+                    && self.version_matches_range(dep_version, vuln_range)
+                {
+                    findings.push(DependencyVulnerability {
+                        dependency: dep_name.clone(),
+                        version: dep_version.clone(),
+                        vulnerable_range: vuln_range.to_string(),
+                        cve_id: cve.to_string(),
+                        severity: ViolationSeverity::High,
+                    });
                 }
             }
         }
@@ -402,12 +481,18 @@ fn decode_leb128_u32(bytes: &[u8]) -> (u32, usize) {
 }
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() { return Some(0); }
-    haystack.windows(needle.len()).position(|window| window == needle)
+    if needle.is_empty() {
+        return Some(0);
+    }
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 fn compute_byte_entropy(data: &[u8]) -> f64 {
-    if data.is_empty() { return 0.0; }
+    if data.is_empty() {
+        return 0.0;
+    }
 
     let mut counts = [0u64; 256];
     for &byte in data {
@@ -415,7 +500,8 @@ fn compute_byte_entropy(data: &[u8]) -> f64 {
     }
 
     let len = data.len() as f64;
-    counts.iter()
+    counts
+        .iter()
         .filter(|&&c| c > 0)
         .map(|&c| {
             let p = c as f64 / len;
@@ -425,9 +511,7 @@ fn compute_byte_entropy(data: &[u8]) -> f64 {
 }
 
 fn version_less_than(a: &str, b: &str) -> bool {
-    let parse = |v: &str| -> Vec<u64> {
-        v.split('.').map(|s| s.parse().unwrap_or(0)).collect()
-    };
+    let parse = |v: &str| -> Vec<u64> { v.split('.').map(|s| s.parse().unwrap_or(0)).collect() };
     let va = parse(a);
     let vb = parse(b);
     va < vb
