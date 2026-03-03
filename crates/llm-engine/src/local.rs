@@ -79,7 +79,7 @@ impl LocalModelManager {
 #[cfg(feature = "llama-cpp")]
 pub mod llama {
     use super::*;
-    use crate::{LlmError, LlmResult};
+    use crate::LlmResult;
     use std::sync::Arc;
     use tokio::sync::Mutex;
 
