@@ -2684,7 +2684,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-cli"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "arboard",
@@ -2720,7 +2720,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-core"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2761,7 +2761,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-llm-engine"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "futures",
@@ -2799,7 +2799,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-mcp-client"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2818,7 +2818,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-sdk"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -2850,7 +2850,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-shell"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2887,7 +2887,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-test-harness"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2902,7 +2902,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-wasm-runtime"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "openzax-core",

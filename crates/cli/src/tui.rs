@@ -448,61 +448,61 @@ fn save_openzax_config(config: &serde_json::Value) {
 async fn check_and_auto_update() {
     // Temporarily disabled to prevent infinite loop until release is ready
     return;
-    
+
     #[allow(unreachable_code)]
     {
-    let current = env!("CARGO_PKG_VERSION");
+        let current = env!("CARGO_PKG_VERSION");
 
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(4))
-        .user_agent(format!("openzax-cli/{}", current))
-        .build()
-    {
-        Ok(c) => c,
-        Err(_) => return,
-    };
+        let client = match reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(4))
+            .user_agent(format!("openzax-cli/{}", current))
+            .build()
+        {
+            Ok(c) => c,
+            Err(_) => return,
+        };
 
-    let resp = match client
-        .get("https://api.github.com/repos/zAxCoder/OpenZax/releases/latest")
-        .send()
-        .await
-    {
-        Ok(r) if r.status().is_success() => r,
-        _ => return,
-    };
+        let resp = match client
+            .get("https://api.github.com/repos/zAxCoder/OpenZax/releases/latest")
+            .send()
+            .await
+        {
+            Ok(r) if r.status().is_success() => r,
+            _ => return,
+        };
 
-    let data: serde_json::Value = match resp.json().await {
-        Ok(d) => d,
-        Err(_) => return,
-    };
+        let data: serde_json::Value = match resp.json().await {
+            Ok(d) => d,
+            Err(_) => return,
+        };
 
-    let latest = match data["tag_name"].as_str() {
-        Some(t) => t.trim_start_matches('v').to_string(),
-        None => return,
-    };
+        let latest = match data["tag_name"].as_str() {
+            Some(t) => t.trim_start_matches('v').to_string(),
+            None => return,
+        };
 
-    if latest == current {
-        return;
-    }
-
-    println!();
-    println!("  Updating OpenZax v{} → v{}...", current, latest);
-
-    match run_installer(&client).await {
-        Ok(true) => {
-            println!("  Update complete!");
-            println!();
-            println!("  Please restart OpenZax to use the new version:");
-            println!("    Close this window and run 'openzax' again");
-            println!();
-            std::thread::sleep(std::time::Duration::from_secs(3));
-            std::process::exit(0);
+        if latest == current {
+            return;
         }
-        Ok(false) => {
-            println!("  Update failed. Continuing with current version.");
+
+        println!();
+        println!("  Updating OpenZax v{} → v{}...", current, latest);
+
+        match run_installer(&client).await {
+            Ok(true) => {
+                println!("  Update complete!");
+                println!();
+                println!("  Please restart OpenZax to use the new version:");
+                println!("    Close this window and run 'openzax' again");
+                println!();
+                std::thread::sleep(std::time::Duration::from_secs(3));
+                std::process::exit(0);
+            }
+            Ok(false) => {
+                println!("  Update failed. Continuing with current version.");
+            }
+            Err(_) => {}
         }
-        Err(_) => {}
-    }
     } // End of unreachable block
 }
 
