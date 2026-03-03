@@ -446,6 +446,11 @@ fn save_openzax_config(config: &serde_json::Value) {
 // ─── Auto-update ─────────────────────────────────────────────────────────────
 
 async fn check_and_auto_update() {
+    // Temporarily disabled to prevent infinite loop until release is ready
+    return;
+    
+    #[allow(unreachable_code)]
+    {
     let current = env!("CARGO_PKG_VERSION");
 
     let client = match reqwest::Client::builder()
@@ -498,6 +503,7 @@ async fn check_and_auto_update() {
         }
         Err(_) => {}
     }
+    } // End of unreachable block
 }
 
 async fn run_installer(client: &reqwest::Client) -> anyhow::Result<bool> {
