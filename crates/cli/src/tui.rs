@@ -485,12 +485,12 @@ async fn check_and_auto_update() {
 
     match run_installer(&client).await {
         Ok(true) => {
-            println!("  Update complete! Restarting...");
+            println!("  Update complete!");
             println!();
-            if let Ok(exe) = std::env::current_exe() {
-                let args: Vec<String> = std::env::args().skip(1).collect();
-                let _ = std::process::Command::new(&exe).args(&args).status();
-            }
+            println!("  Please restart OpenZax to use the new version:");
+            println!("    Close this window and run 'openzax' again");
+            println!();
+            std::thread::sleep(std::time::Duration::from_secs(3));
             std::process::exit(0);
         }
         Ok(false) => {
