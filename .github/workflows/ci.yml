@@ -70,7 +70,9 @@ jobs:
           key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}-v2
       - name: Clean previous build artifacts
         run: cargo clean -p openzax-llm-engine
-      - run: cargo clippy --workspace --all-features -- -D warnings
+      - name: Run clippy
+        run: cargo clippy --workspace --all-features -- -D warnings
+        continue-on-error: false
 
   build:
     name: Build (${{ matrix.os }})

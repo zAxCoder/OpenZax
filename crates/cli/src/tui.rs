@@ -529,7 +529,7 @@ async fn run_installer(client: &reqwest::Client) -> anyhow::Result<bool> {
             .arg(temp.to_str().unwrap_or(""))
             .status()?;
         let _ = std::fs::remove_file(&temp);
-        return Ok(status.success());
+        Ok(status.success())
     }
 }
 
