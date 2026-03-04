@@ -682,7 +682,10 @@ impl Agent {
                 .collect()
         };
 
-        let model = if !requested_model.is_empty() && requested_model != default_model && !active_models.contains(&requested_model) {
+        let model = if !requested_model.is_empty()
+            && requested_model != default_model
+            && !active_models.contains(&requested_model)
+        {
             requested_model
         } else {
             Self::FALLBACK_MODELS
@@ -690,7 +693,11 @@ impl Agent {
                 .find(|m| **m != default_model && !active_models.contains(&m.to_string()))
                 .map(|m| m.to_string())
                 .unwrap_or_else(|| {
-                    if !requested_model.is_empty() { requested_model } else { default_model.clone() }
+                    if !requested_model.is_empty() {
+                        requested_model
+                    } else {
+                        default_model.clone()
+                    }
                 })
         };
 
@@ -762,10 +769,15 @@ TASK: {}"#,
         let sub_bus = EventBus::default();
         let sub_agent = Agent::new(sub_config, sub_bus);
 
-        let model_short = model.split('/').last().unwrap_or(&model).to_string();
+        let model_short = model.split('/').next_back().unwrap_or(&model).to_string();
         let _ = self.event_bus.publish(Event::AgentThinking {
             agent_id: self.id,
-            thought_text: format!("[Agent #{} → {}] {}", agent_idx + 1, model_short, task_short),
+            thought_text: format!(
+                "[Agent #{} → {}] {}",
+                agent_idx + 1,
+                model_short,
+                task_short
+            ),
             timestamp: Utc::now(),
         });
 

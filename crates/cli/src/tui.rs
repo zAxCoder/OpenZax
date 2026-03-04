@@ -1318,7 +1318,10 @@ impl App {
             Mode::Plan => PLAN_PROMPT.to_string(),
             Mode::MultiAgent => {
                 let mut catalog = String::new();
-                for m in FREE_MODELS.iter().filter(|m| m.category == "text" || m.category == "vision") {
+                for m in FREE_MODELS
+                    .iter()
+                    .filter(|m| m.category == "text" || m.category == "vision")
+                {
                     catalog.push_str(&format!(
                         "- **{}** (`{}`): {}\n",
                         m.display, m.id, m.strength
@@ -2252,7 +2255,10 @@ fn draw_models(f: &mut Frame, app: &mut App) {
     f.render_widget(Clear, popup);
     f.render_widget(Block::default().style(Style::default().bg(BG_POPUP)), popup);
 
-    let chat_count = FREE_MODELS.iter().filter(|m| m.category == "text" || m.category == "vision").count();
+    let chat_count = FREE_MODELS
+        .iter()
+        .filter(|m| m.category == "text" || m.category == "vision")
+        .count();
     let title_text = format!(" Switch Model ({}/{}) ", app.ov_idx + 1, FREE_MODELS.len());
     let blk = Block::default()
         .borders(Borders::ALL)
@@ -2274,10 +2280,14 @@ fn draw_models(f: &mut Frame, app: &mut App) {
         ])
         .split(inner);
 
-    let header = format!(" {} text/vision  ·  {} image  ·  {} embed  ↑↓ scroll",
+    let header = format!(
+        " {} text/vision  ·  {} image  ·  {} embed  ↑↓ scroll",
         chat_count,
         FREE_MODELS.iter().filter(|m| m.category == "image").count(),
-        FREE_MODELS.iter().filter(|m| m.category == "embedding").count(),
+        FREE_MODELS
+            .iter()
+            .filter(|m| m.category == "embedding")
+            .count(),
     );
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
@@ -2321,11 +2331,22 @@ fn draw_models(f: &mut Frame, app: &mut App) {
             "vision" => Color::Rgb(130, 200, 255),
             "image" => Color::Rgb(255, 150, 200),
             "embedding" => Color::Rgb(200, 255, 150),
-            _ => if sel { G3 } else { G4 },
+            _ => {
+                if sel {
+                    G3
+                } else {
+                    G4
+                }
+            }
         };
         lines.push(Line::from(vec![
             Span::styled(mark, Style::default().fg(if cur { W } else { G4 }).bg(bg)),
-            Span::styled(cat_badge, Style::default().fg(if sel { BLK } else { cat_color }).bg(bg)),
+            Span::styled(
+                cat_badge,
+                Style::default()
+                    .fg(if sel { BLK } else { cat_color })
+                    .bg(bg),
+            ),
             Span::styled(format!("{:<20}", m.display), Style::default().fg(fg).bg(bg)),
             Span::styled(
                 format!("{:>6}", m.ctx),
