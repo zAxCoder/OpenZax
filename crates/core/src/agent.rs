@@ -661,6 +661,15 @@ impl Agent {
     ];
 
     fn resolve_model_name(requested: &str) -> String {
+        if requested.contains('/') && !requested.ends_with(":free") {
+            let with_free = format!("{}:free", requested);
+            for fb in Self::FALLBACK_MODELS {
+                if *fb == with_free {
+                    return with_free;
+                }
+            }
+            return requested.to_string();
+        }
         if requested.contains('/') {
             return requested.to_string();
         }
@@ -673,20 +682,30 @@ impl Agent {
             ("gpt-oss-20b", "openai/gpt-oss-20b:free"),
             ("llama-3.3-70b", "meta-llama/llama-3.3-70b-instruct:free"),
             ("llama-3.3", "meta-llama/llama-3.3-70b-instruct:free"),
+            ("llama-3.1", "meta-llama/llama-3.3-70b-instruct:free"),
+            ("llama-70b", "meta-llama/llama-3.3-70b-instruct:free"),
+            ("llama-8b", "qwen/qwen3-4b:free"),
             ("gemma-3-27b", "google/gemma-3-27b-it:free"),
             ("gemma-3", "google/gemma-3-27b-it:free"),
             ("gemma3", "google/gemma-3-27b-it:free"),
+            ("gemma2", "google/gemma-3-27b-it:free"),
+            ("gemma-2", "google/gemma-3-27b-it:free"),
             (
                 "mistral-small",
                 "mistralai/mistral-small-3.1-24b-instruct:free",
             ),
+            ("mistral", "mistralai/mistral-small-3.1-24b-instruct:free"),
+            ("mixtral", "mistralai/mistral-small-3.1-24b-instruct:free"),
             ("step-3.5", "stepfun/step-3.5-flash:free"),
             ("trinity-large", "arcee-ai/trinity-large-preview:free"),
             ("trinity-mini", "arcee-ai/trinity-mini:free"),
+            ("trinity", "arcee-ai/trinity-large-preview:free"),
             ("nemotron-nano-9b", "nvidia/nemotron-nano-9b-v2:free"),
             ("nemotron-nano-12b", "nvidia/nemotron-nano-12b-v2-vl:free"),
             ("nemotron-3-nano", "nvidia/nemotron-3-nano-30b-a3b:free"),
-            ("deepseek-r1", "deepseek/deepseek-r1-0528:free"),
+            ("nemotron", "nvidia/nemotron-nano-9b-v2:free"),
+            ("deepseek-r1", "openai/gpt-oss-120b:free"),
+            ("deepseek", "openai/gpt-oss-120b:free"),
         ];
         for (pat, full) in known {
             if lower.contains(pat) {
@@ -703,7 +722,7 @@ impl Agent {
                 return fallback.to_string();
             }
         }
-        requested.to_string()
+        String::new()
     }
 
     async fn spawn_sub_agent(&self, args: &serde_json::Value) -> String {
@@ -745,13 +764,7 @@ impl Agent {
                 .iter()
                 .find(|m| **m != default_model && !active_models.contains(&m.to_string()))
                 .map(|m| m.to_string())
-                .unwrap_or_else(|| {
-                    if !requested_model.is_empty() {
-                        requested_model
-                    } else {
-                        default_model.clone()
-                    }
-                })
+                .unwrap_or_else(|| default_model.clone())
         };
 
         let task_short = if task.len() > 60 {
@@ -867,6 +880,11 @@ TASK: {}"#,
                     }
                 }
                 Err(e) => {
+                    let err_str = e.to_string();
+                    if err_str.contains("429") || err_str.contains("rate") {
+                        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                        continue;
+                    }
                     match sub_agent
                         .stream_simple(&messages, &sub_api_url, &api_key, &model, 0.2, 8192)
                         .await
@@ -875,7 +893,12 @@ TASK: {}"#,
                             final_response = content;
                             break;
                         }
-                        Err(_) => {
+                        Err(e2) => {
+                            let e2s = e2.to_string();
+                            if e2s.contains("429") || e2s.contains("rate") {
+                                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                                continue;
+                            }
                             final_response = format!("Agent #{} error: {}", agent_idx + 1, e);
                             break;
                         }

@@ -279,7 +279,6 @@ impl TestRunner {
             data[input_ptr as usize..end].copy_from_slice(input_bytes);
         }
 
-        // Call the skill entry point
         let skill_fn = instance
             .get_typed_func::<(i32, i32, i32, i32), i32>(&mut store, "__openzax_skill_call")?;
 

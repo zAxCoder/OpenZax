@@ -326,7 +326,6 @@ pub async fn execute_node(
             };
 
             debug!("Executing sub-workflow: {}", sub_workflow.name);
-            // Full recursive execution would happen here; returning stub output
             Ok(serde_json::json!({
                 "sub_workflow_id": workflow_id.to_string(),
                 "sub_workflow_name": sub_workflow.name,

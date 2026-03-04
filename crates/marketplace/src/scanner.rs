@@ -285,7 +285,6 @@ impl Tier1Scanner {
             pos = section_start + size as usize;
 
             if section_id == 2 && section_start < bytes.len() {
-                // Import section - parse module/name pairs
                 let section_bytes = &bytes[section_start..pos.min(bytes.len())];
                 imports.extend(self.parse_import_section(section_bytes));
             }

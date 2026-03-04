@@ -2119,7 +2119,6 @@ rustflags = ["-C", "link-arg=--export-table"]
 
 #[skill]
 pub fn execute(ctx: &SkillContext) -> SkillResult {{
-    // Your skill logic here
     let input = ctx.get_input()?;
     
     Ok(format!("Hello from {}! Input: {{}}", input))

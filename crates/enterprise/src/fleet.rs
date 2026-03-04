@@ -478,7 +478,6 @@ impl FleetManager {
     }
 
     pub fn bulk_update(&self, org_id: &Uuid, target_version: &str) -> Result<usize, FleetError> {
-        // In production, this would push an update command to all endpoints via a message queue
         let endpoints = {
             let conn = self.conn.lock().unwrap();
             let mut stmt =

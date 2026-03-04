@@ -278,7 +278,6 @@ impl OrgManager {
             ],
         )?;
 
-        // In production: send invite email here
         tracing::info!("Invitation created for {} to org {}", email, org_id);
 
         Ok(token)

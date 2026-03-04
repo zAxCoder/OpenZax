@@ -1397,13 +1397,26 @@ fn input_height_with_width(app: &App, width: u16) -> u16 {
     ((total_lines.max(3) + 2) as u16).min(12)
 }
 
-// Helper to detect Ctrl+letter
 fn is_ctrl(key: &crossterm::event::KeyEvent, ch: char) -> bool {
     let m = key.modifiers;
     if m.contains(KeyModifiers::CONTROL) {
         if let KeyCode::Char(c) = key.code {
             if c == ch || c == ch.to_ascii_uppercase() {
                 return true;
+            }
+            let arabic_map: &[(char, char)] = &[
+                ('c', '\u{0624}'),
+                ('v', '\u{0631}'),
+                ('m', '\u{0629}'),
+                ('p', '\u{062D}'),
+                ('k', '\u{0646}'),
+                ('n', '\u{0649}'),
+                ('t', '\u{0641}'),
+            ];
+            for &(latin, arabic) in arabic_map {
+                if ch == latin && c == arabic {
+                    return true;
+                }
             }
         }
     }
@@ -2032,7 +2045,18 @@ fn draw_sidebar(f: &mut Frame, app: &mut App, area: Rect, agent: &Agent) {
         )));
     }
 
-    let total_lines = l.len();
+    let sw = inner.width as usize;
+    let total_lines: usize = l
+        .iter()
+        .map(|line| {
+            let span_len: usize = line.spans.iter().map(|s| s.content.chars().count()).sum();
+            if span_len == 0 || sw == 0 {
+                1
+            } else {
+                span_len.div_ceil(sw).max(1)
+            }
+        })
+        .sum();
     let vis = inner.height as usize;
     let max_scroll = total_lines.saturating_sub(vis);
     app.sidebar_scroll = app.sidebar_scroll.min(max_scroll);
@@ -2044,26 +2068,6 @@ fn draw_sidebar(f: &mut Frame, app: &mut App, area: Rect, agent: &Agent) {
             .scroll((app.sidebar_scroll as u16, 0)),
         inner,
     );
-    if total_lines > vis {
-        let scrollbar_h = inner.height;
-        let thumb_pos = if max_scroll > 0 {
-            (app.sidebar_scroll as u16 * scrollbar_h) / max_scroll as u16
-        } else {
-            0
-        };
-        let sx = area.right().saturating_sub(1);
-        for y in inner.y..inner.y + scrollbar_h {
-            let ch = if y == inner.y + thumb_pos {
-                "█"
-            } else {
-                "│"
-            };
-            f.render_widget(
-                Paragraph::new(ch).style(Style::default().fg(G4).bg(BG_PANEL)),
-                Rect::new(sx, y, 1, 1),
-            );
-        }
-    }
 }
 
 // ─── Overlays (with Clear widget for solid background) ───────────────────────

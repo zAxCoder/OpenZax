@@ -129,7 +129,6 @@ pub struct Discrepancy {
 pub struct ExecutionReplayer {
     /// Index: (tool_name, param_hash) -> ToolCallRecord
     tool_index: HashMap<(String, String), Vec<ToolCallRecord>>,
-    /// Sequential cursor per tool for ordered replay
     cursors: Mutex<HashMap<String, usize>>,
     llm_index: HashMap<String, LlmCallRecord>,
 }
