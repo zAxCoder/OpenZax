@@ -838,20 +838,16 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
                     match client.get(&url).send().await {
                         Ok(resp) if resp.status().is_success() => {
                             let bytes = resp.bytes().await?;
-                            let install_dir = dirs::home_dir()
-                                .map(|h| h.join(".openzax").join("bin"))
-                                .unwrap_or_else(|| PathBuf::from("."));
-                            std::fs::create_dir_all(&install_dir)?;
-
                             let exe_name = if cfg!(target_os = "windows") {
                                 "openzax.exe"
                             } else {
                                 "openzax"
                             };
-                            let dest = install_dir.join(exe_name);
+
+                            let tmp_dir = std::env::temp_dir();
+                            let tmp_binary = tmp_dir.join(format!("openzax-update-{}", exe_name));
 
                             if cfg!(target_os = "windows") {
-                                // Extract from zip
                                 let cursor = std::io::Cursor::new(&bytes);
                                 let mut archive = zip::ZipArchive::new(cursor)?;
                                 for i in 0..archive.len() {
@@ -861,12 +857,11 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
                                         use std::io::Read;
                                         let mut buf = Vec::new();
                                         file.read_to_end(&mut buf)?;
-                                        std::fs::write(&dest, &buf)?;
+                                        std::fs::write(&tmp_binary, &buf)?;
                                         break;
                                     }
                                 }
                             } else {
-                                // Extract from tar.gz
                                 let cursor = std::io::Cursor::new(&bytes);
                                 let gz = flate2::read::GzDecoder::new(cursor);
                                 let mut archive = tar::Archive::new(gz);
@@ -874,7 +869,7 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
                                     let mut entry = entry?;
                                     let path = entry.path()?.to_path_buf();
                                     if path.file_name().map(|n| n == exe_name).unwrap_or(false) {
-                                        entry.unpack(&dest)?;
+                                        entry.unpack(&tmp_binary)?;
                                         break;
                                     }
                                 }
@@ -882,31 +877,72 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
                                 {
                                     use std::os::unix::fs::PermissionsExt;
                                     std::fs::set_permissions(
-                                        &dest,
+                                        &tmp_binary,
                                         std::fs::Permissions::from_mode(0o755),
                                     )?;
                                 }
                             }
 
-                            println!(
-                                "  {} Installed {} to {}",
-                                "✓".green().bold(),
-                                latest,
-                                dest.display()
-                            );
-                            println!();
+                            let current_exe =
+                                std::env::current_exe().unwrap_or_else(|_| PathBuf::from(exe_name));
 
-                            // Also try to copy to cargo bin
-                            if let Some(cargo_bin) = dirs::home_dir()
-                                .map(|h| h.join(".cargo").join("bin").join(exe_name))
-                            {
-                                let _ = std::fs::copy(&dest, &cargo_bin);
+                            let mut installed_paths: Vec<PathBuf> = Vec::new();
+
+                            // Replace the currently running binary
+                            if current_exe.exists() {
+                                let old_exe = current_exe.with_extension("old");
+                                let _ = std::fs::remove_file(&old_exe);
+                                if std::fs::rename(&current_exe, &old_exe).is_ok() {
+                                    if std::fs::copy(&tmp_binary, &current_exe).is_ok() {
+                                        let _ = std::fs::remove_file(&old_exe);
+                                        installed_paths.push(current_exe.clone());
+                                    } else {
+                                        let _ = std::fs::rename(&old_exe, &current_exe);
+                                    }
+                                }
                             }
 
-                            println!(
-                                "  {} Restart your terminal to use the new version.",
-                                "→".bright_cyan()
-                            );
+                            // Also install to ~/.openzax/bin/
+                            if let Some(home) = dirs::home_dir() {
+                                let openzax_bin = home.join(".openzax").join("bin");
+                                let _ = std::fs::create_dir_all(&openzax_bin);
+                                let dest = openzax_bin.join(exe_name);
+                                if dest != current_exe
+                                    && std::fs::copy(&tmp_binary, &dest).is_ok()
+                                {
+                                    installed_paths.push(dest);
+                                }
+
+                                // Also try ~/.cargo/bin/
+                                let cargo_dest = home.join(".cargo").join("bin").join(exe_name);
+                                if cargo_dest != current_exe {
+                                    let _ = std::fs::copy(&tmp_binary, &cargo_dest);
+                                }
+                            }
+
+                            let _ = std::fs::remove_file(&tmp_binary);
+
+                            if installed_paths.is_empty() {
+                                println!(
+                                    "  {} Could not replace binary. Try running as admin.",
+                                    "⚠".bright_yellow().bold()
+                                );
+                                print_manual_upgrade_instructions();
+                            } else {
+                                for p in &installed_paths {
+                                    println!(
+                                        "  {} Installed {} to {}",
+                                        "✓".green().bold(),
+                                        latest,
+                                        p.display()
+                                    );
+                                }
+                                println!();
+                                println!(
+                                    "  {} Restart your terminal to use the new version.",
+                                    "→".bright_cyan()
+                                );
+                            }
                         }
                         _ => {
                             println!("  {} Download failed", "✗".red().bold());

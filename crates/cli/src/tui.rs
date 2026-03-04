@@ -1165,6 +1165,7 @@ pub struct App {
     done_flag: Arc<Mutex<bool>>,
     agent_ref: Option<Arc<Agent>>,
     paste_cooldown: Instant,
+    update_available: Arc<Mutex<Option<String>>>,
 }
 
 impl App {
@@ -1203,6 +1204,7 @@ impl App {
             done_flag: Arc::new(Mutex::new(false)),
             agent_ref: None,
             paste_cooldown: Instant::now(),
+            update_available: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -1420,7 +1422,16 @@ fn draw_empty(f: &mut Frame, app: &App) {
     let a = f.area();
     let brand_h = BRAND_OPEN.len() as u16;
     let ih = input_height(app);
-    let content_h = brand_h + 2 + ih + 2 + 1 + 2 + 1;
+
+    let has_update = app
+        .update_available
+        .lock()
+        .ok()
+        .and_then(|g| g.clone())
+        .is_some();
+    let update_h: u16 = if has_update { 3 } else { 0 };
+
+    let content_h = brand_h + 2 + ih + 2 + 1 + 2 + 1 + update_h;
     let top = a.height.saturating_sub(content_h) / 2;
 
     let chunks = Layout::default()
@@ -1434,6 +1445,7 @@ fn draw_empty(f: &mut Frame, app: &App) {
             Constraint::Length(1),
             Constraint::Length(2),
             Constraint::Length(1),
+            Constraint::Length(update_h),
             Constraint::Min(0),
             Constraint::Length(1),
         ])
@@ -1510,6 +1522,37 @@ fn draw_empty(f: &mut Frame, app: &App) {
         chunks[6],
     );
 
+    // Update notification
+    if let Some(new_ver) = app.update_available.lock().ok().and_then(|g| g.clone()) {
+        let update_lines = vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::styled(
+                    " ★ ",
+                    Style::default()
+                        .fg(ACCENT_GOLD)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("Update available: v{} → {}  ", VERSION, new_ver),
+                    Style::default().fg(ACCENT_GOLD),
+                ),
+                Span::styled(
+                    "Run: openzax upgrade",
+                    Style::default()
+                        .fg(ACCENT_BLUE)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ]),
+        ];
+        f.render_widget(
+            Paragraph::new(update_lines)
+                .alignment(Alignment::Center)
+                .style(Style::default().bg(BG)),
+            chunks[8],
+        );
+    }
+
     // Bottom: CWD (left) + version (right)
     let cwd = std::env::current_dir()
         .map(|p| p.display().to_string())
@@ -1523,7 +1566,7 @@ fn draw_empty(f: &mut Frame, app: &App) {
     ]);
     f.render_widget(
         Paragraph::new(bottom).style(Style::default().bg(BG)),
-        chunks[9],
+        chunks[10],
     );
 }
 
@@ -1927,6 +1970,26 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect, agent: &Agent) {
         "  cloud.cerebras.ai",
         Style::default().fg(G1),
     )));
+
+    if let Some(new_ver) = app.update_available.lock().ok().and_then(|g| g.clone()) {
+        l.push(Line::default());
+        l.push(Line::from(Span::styled(
+            "★ Update Available",
+            Style::default()
+                .fg(ACCENT_GOLD)
+                .add_modifier(Modifier::BOLD),
+        )));
+        l.push(Line::from(Span::styled(
+            format!("  v{} → {}", VERSION, new_ver),
+            Style::default().fg(ACCENT_GOLD),
+        )));
+        l.push(Line::from(Span::styled(
+            "  openzax upgrade",
+            Style::default()
+                .fg(ACCENT_BLUE)
+                .add_modifier(Modifier::BOLD),
+        )));
+    }
 
     f.render_widget(
         Paragraph::new(Text::from(l))
@@ -2555,6 +2618,41 @@ async fn main_loop(
     let mut app = App::new(&resolved_model);
     app.model_api = initial_api_url.clone();
     app.model_provider = initial_provider;
+
+    // Background update check
+    {
+        let update_flag = Arc::clone(&app.update_available);
+        tokio::spawn(async move {
+            let client = match reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(5))
+                .user_agent("openzax-cli")
+                .build()
+            {
+                Ok(c) => c,
+                Err(_) => return,
+            };
+            let resp = match client
+                .get("https://api.github.com/repos/zAxCoder/OpenZax/releases/latest")
+                .send()
+                .await
+            {
+                Ok(r) if r.status().is_success() => r,
+                _ => return,
+            };
+            let json: serde_json::Value = match resp.json().await {
+                Ok(j) => j,
+                Err(_) => return,
+            };
+            if let Some(tag) = json["tag_name"].as_str() {
+                let current = format!("v{}", env!("CARGO_PKG_VERSION"));
+                if tag != current {
+                    if let Ok(mut guard) = update_flag.lock() {
+                        *guard = Some(tag.to_string());
+                    }
+                }
+            }
+        });
+    }
 
     if key.is_none() {
         app.pending_sys
