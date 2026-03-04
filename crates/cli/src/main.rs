@@ -907,8 +907,7 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
                                 let openzax_bin = home.join(".openzax").join("bin");
                                 let _ = std::fs::create_dir_all(&openzax_bin);
                                 let dest = openzax_bin.join(exe_name);
-                                if dest != current_exe
-                                    && std::fs::copy(&tmp_binary, &dest).is_ok()
+                                if dest != current_exe && std::fs::copy(&tmp_binary, &dest).is_ok()
                                 {
                                     installed_paths.push(dest);
                                 }
