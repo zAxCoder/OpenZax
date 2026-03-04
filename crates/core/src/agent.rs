@@ -35,6 +35,7 @@ pub struct Agent {
     config: Mutex<AgentConfig>,
     event_bus: EventBus,
     client: reqwest::Client,
+    history: Mutex<Vec<serde_json::Value>>,
 }
 
 impl Agent {
@@ -44,7 +45,12 @@ impl Agent {
             config: Mutex::new(config),
             event_bus,
             client: reqwest::Client::new(),
+            history: Mutex::new(Vec::new()),
         }
+    }
+
+    pub fn clear_history(&self) {
+        self.history.lock().unwrap().clear();
     }
 
     pub fn id(&self) -> Uuid {
@@ -91,12 +97,32 @@ impl Agent {
 
     fn build_messages(&self, prompt: &str) -> Vec<serde_json::Value> {
         let cfg = self.config.lock().unwrap();
+        let history = self.history.lock().unwrap();
         let mut messages = Vec::new();
+
         if let Some(ref sys) = cfg.system_prompt {
             messages.push(serde_json::json!({"role": "system", "content": sys}));
         }
+
+        for msg in history.iter() {
+            messages.push(msg.clone());
+        }
+
         messages.push(serde_json::json!({"role": "user", "content": prompt}));
         messages
+    }
+
+    fn save_to_history(&self, user_msg: &str, assistant_msg: &str) {
+        let mut history = self.history.lock().unwrap();
+        history.push(serde_json::json!({"role": "user", "content": user_msg}));
+        if !assistant_msg.is_empty() {
+            history.push(serde_json::json!({"role": "assistant", "content": assistant_msg}));
+        }
+
+        let max_history = 50;
+        while history.len() > max_history * 2 {
+            history.remove(0);
+        }
     }
 
     async fn call_llm(&self, prompt: &str) -> Result<String> {
@@ -819,6 +845,7 @@ impl Agent {
             ))?;
 
         let mut messages = self.build_messages(prompt);
+        let mut final_assistant_text = String::new();
 
         // Try with tools first; fall back to simple streaming if tools aren't supported
         let first_result = self
@@ -828,6 +855,8 @@ impl Agent {
         match first_result {
             Ok((content, tool_calls)) => {
                 if tool_calls.is_empty() {
+                    final_assistant_text = content;
+                    self.save_to_history(prompt, &final_assistant_text);
                     self.event_bus.publish(Event::AgentOutput {
                         agent_id: self.id,
                         content: String::new(),
@@ -893,6 +922,7 @@ impl Agent {
                         .await?;
 
                     if tool_calls.is_empty() {
+                        final_assistant_text = content;
                         break;
                     }
 
@@ -948,15 +978,16 @@ impl Agent {
             }
             Err(e) => {
                 let err_str = format!("{}", e);
-                // 401 = invalid key, propagate immediately
                 if err_str.contains("401") {
                     return Err(e);
                 }
-                // For other errors (e.g. model doesn't support tools), fall back to simple streaming
-                self.stream_simple(&messages, &api_url, &api_key, &model, temp, max_tok)
+                let fallback = self.stream_simple(&messages, &api_url, &api_key, &model, temp, max_tok)
                     .await?;
+                final_assistant_text = fallback;
             }
         }
+
+        self.save_to_history(prompt, &final_assistant_text);
 
         self.event_bus.publish(Event::AgentOutput {
             agent_id: self.id,

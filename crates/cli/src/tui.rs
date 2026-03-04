@@ -1845,7 +1845,7 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
     out
 }
 
-fn handle_slash(app: &mut App, cmd: &str) -> bool {
+fn handle_slash(app: &mut App, cmd: &str, agent: &Agent) -> bool {
     match cmd.trim() {
         "/help" | "/h" => {
             app.push(Msg::System("Tab mode · Ctrl+T tier · Ctrl+P cmds · Ctrl+M model · Ctrl+K skills · Ctrl+N new · Shift+Enter newline · /exit quit".into()));
@@ -1853,6 +1853,7 @@ fn handle_slash(app: &mut App, cmd: &str) -> bool {
         }
         "/clear" | "/new" => {
             app.msgs.clear();
+            agent.clear_history();
             app.phase = Phase::Empty;
             app.session_tokens = 0;
             app.session_start = Instant::now();
@@ -2246,6 +2247,7 @@ async fn main_loop(
                 }
                 if is_ctrl(&key, 'n') {
                     app.msgs.clear();
+                    agent.clear_history();
                     app.phase = Phase::Empty;
                     app.session_tokens = 0;
                     app.session_start = Instant::now();
@@ -2312,7 +2314,7 @@ async fn main_loop(
                             continue;
                         }
                         if text.trim().starts_with('/') {
-                            handle_slash(&mut app, text.trim());
+                            handle_slash(&mut app, text.trim(), &agent);
                             if app
                                 .msgs
                                 .last()
@@ -2424,6 +2426,7 @@ fn execute_overlay(app: &mut App, agent: &Arc<Agent>) {
                     }
                     "New session" => {
                         app.msgs.clear();
+                        agent.clear_history();
                         app.phase = Phase::Empty;
                         app.session_tokens = 0;
                         app.session_start = Instant::now();
