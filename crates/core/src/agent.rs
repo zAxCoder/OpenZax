@@ -38,6 +38,7 @@ impl Default for AgentConfig {
 pub struct SubAgentStatus {
     pub task: String,
     pub done: bool,
+    pub model: Option<String>,
 }
 
 pub struct Agent {
@@ -644,6 +645,19 @@ impl Agent {
         }
     }
 
+    const FALLBACK_MODELS: &'static [&'static str] = &[
+        "qwen/qwen3-coder:free",
+        "openai/gpt-oss-120b:free",
+        "qwen/qwen3-next-80b-a3b-instruct:free",
+        "deepseek/deepseek-r1-0528:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "nousresearch/hermes-3-llama-3.1-405b:free",
+        "arcee-ai/trinity-large-preview:free",
+        "stepfun/step-3.5-flash:free",
+        "google/gemma-3-27b-it:free",
+        "mistralai/mistral-small-3.1-24b-instruct:free",
+    ];
+
     async fn spawn_sub_agent(&self, args: &serde_json::Value) -> String {
         let task = args["task"].as_str().unwrap_or("");
         if task.is_empty() {
@@ -658,7 +672,27 @@ impl Agent {
             Some(k) => k.clone(),
             None => return "Error: no API key configured".to_string(),
         };
-        let model = args["model"].as_str().unwrap_or(&default_model).to_string();
+
+        let requested_model = args["model"].as_str().unwrap_or("").to_string();
+        let active_models: Vec<String> = {
+            let subs = safe_lock(&self.sub_agents);
+            subs.iter()
+                .filter(|s| !s.done)
+                .filter_map(|s| s.model.clone())
+                .collect()
+        };
+
+        let model = if !requested_model.is_empty() && requested_model != default_model && !active_models.contains(&requested_model) {
+            requested_model
+        } else {
+            Self::FALLBACK_MODELS
+                .iter()
+                .find(|m| **m != default_model && !active_models.contains(&m.to_string()))
+                .map(|m| m.to_string())
+                .unwrap_or_else(|| {
+                    if !requested_model.is_empty() { requested_model } else { default_model.clone() }
+                })
+        };
 
         let task_short = if task.len() > 60 {
             format!("{}...", &task[..57])
@@ -670,6 +704,7 @@ impl Agent {
             subs.push(SubAgentStatus {
                 task: task_short.clone(),
                 done: false,
+                model: Some(model.clone()),
             });
             subs.len() - 1
         };
@@ -710,8 +745,14 @@ TASK: {}"#,
             task
         );
 
+        let sub_api_url = if model.contains('/') {
+            "https://openrouter.ai/api/v1/chat/completions".to_string()
+        } else {
+            api_url.clone()
+        };
+
         let sub_config = AgentConfig {
-            api_url: api_url.clone(),
+            api_url: sub_api_url.clone(),
             api_key: Some(api_key.clone()),
             model: model.clone(),
             temperature: 0.2,
@@ -721,9 +762,10 @@ TASK: {}"#,
         let sub_bus = EventBus::default();
         let sub_agent = Agent::new(sub_config, sub_bus);
 
+        let model_short = model.split('/').last().unwrap_or(&model).to_string();
         let _ = self.event_bus.publish(Event::AgentThinking {
             agent_id: self.id,
-            thought_text: format!("[Agent #{}] {}", agent_idx + 1, task_short),
+            thought_text: format!("[Agent #{} → {}] {}", agent_idx + 1, model_short, task_short),
             timestamp: Utc::now(),
         });
 
@@ -732,7 +774,7 @@ TASK: {}"#,
         let mut final_response = String::new();
         for _round in 0..10 {
             match sub_agent
-                .stream_with_tools(&messages, &api_url, &api_key, &model, 0.2, 8192)
+                .stream_with_tools(&messages, &sub_api_url, &api_key, &model, 0.2, 8192)
                 .await
             {
                 Ok((content, tool_calls)) => {
@@ -761,7 +803,7 @@ TASK: {}"#,
                 }
                 Err(e) => {
                     match sub_agent
-                        .stream_simple(&messages, &api_url, &api_key, &model, 0.2, 8192)
+                        .stream_simple(&messages, &sub_api_url, &api_key, &model, 0.2, 8192)
                         .await
                     {
                         Ok(content) => {

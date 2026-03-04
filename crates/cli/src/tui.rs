@@ -100,24 +100,71 @@ pub struct FreeModel {
     pub provider: &'static str,
     pub api_url: &'static str,
     pub key_env: &'static str,
+    pub category: &'static str,
+    pub strength: &'static str,
 }
 
 const FREE_MODELS: &[FreeModel] = &[
+    // ── Tier 1: Elite text models ────────────────────────────────────────
     FreeModel {
-        id: "arcee-ai/trinity-large-preview:free",
-        display: "Trinity Large",
+        id: "nousresearch/hermes-3-llama-3.1-405b:free",
+        display: "Hermes 3 405B",
         ctx: "128K",
         provider: "OpenRouter",
         api_url: "https://openrouter.ai/api/v1/chat/completions",
         key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Largest free model. Elite general knowledge, creative writing, long-form content, complex reasoning, and nuanced conversation",
     },
     FreeModel {
-        id: "stepfun/step-3.5-flash:free",
-        display: "Step 3.5 Flash",
-        ctx: "256K",
+        id: "openai/gpt-oss-120b:free",
+        display: "GPT-OSS 120B",
+        ctx: "128K",
         provider: "OpenRouter",
         api_url: "https://openrouter.ai/api/v1/chat/completions",
         key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "OpenAI open-source 120B. Excellent full-stack coding, strong reasoning, great instruction following and structured output",
+    },
+    FreeModel {
+        id: "qwen/qwen3-235b-a22b-thinking-2507",
+        display: "Qwen3 235B Think",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Massive 235B thinking model. Best for complex math, deep analysis, multi-step reasoning, algorithm design, and architecture planning",
+    },
+    FreeModel {
+        id: "qwen/qwen3-vl-235b-a22b-thinking",
+        display: "Qwen3 VL 235B",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "vision",
+        strength: "235B vision+thinking. Best for image understanding combined with deep reasoning, visual code review, UI/UX analysis, and diagram interpretation",
+    },
+    FreeModel {
+        id: "qwen/qwen3-next-80b-a3b-instruct:free",
+        display: "Qwen3 Next 80B",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "80B MoE free model. Strong balanced coding and reasoning, excellent instruction following, good for backend development and system design",
+    },
+    FreeModel {
+        id: "qwen/qwen3-coder:free",
+        display: "Qwen3 Coder",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Dedicated coding model. Best for code generation, debugging, refactoring, full-stack development (frontend + backend), code review, and writing tests",
     },
     FreeModel {
         id: "deepseek/deepseek-r1-0528:free",
@@ -126,6 +173,19 @@ const FREE_MODELS: &[FreeModel] = &[
         provider: "OpenRouter",
         api_url: "https://openrouter.ai/api/v1/chat/completions",
         key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Deep reasoning specialist. Excellent at math, logic puzzles, step-by-step problem solving, and complex code debugging",
+    },
+    // ── Tier 2: Strong text models ───────────────────────────────────────
+    FreeModel {
+        id: "meta-llama/llama-3.3-70b-instruct:free",
+        display: "Llama 3.3 70B",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Proven 70B model. Strong general coding, API development, backend systems, documentation writing, and reliable structured output",
     },
     FreeModel {
         id: "qwen/qwen3-235b-a22b:free",
@@ -134,14 +194,110 @@ const FREE_MODELS: &[FreeModel] = &[
         provider: "OpenRouter",
         api_url: "https://openrouter.ai/api/v1/chat/completions",
         key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "235B general model. Strong reasoning, coding, and multilingual capabilities. Good for complex analysis and technical writing",
     },
     FreeModel {
-        id: "meta-llama/llama-3.3-70b-instruct:free",
-        display: "Llama 3.3 70B",
+        id: "sourceful/riverflow-v2-max-preview",
+        display: "Riverflow V2 Max",
         ctx: "128K",
         provider: "OpenRouter",
         api_url: "https://openrouter.ai/api/v1/chat/completions",
         key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Maximum quality writing model. Best for marketing copy, creative content, storytelling, blog posts, and persuasive natural language",
+    },
+    FreeModel {
+        id: "sourceful/riverflow-v2-pro",
+        display: "Riverflow V2 Pro",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Professional writing model. Great for content creation, email drafting, social media posts, product descriptions, and conversational AI",
+    },
+    FreeModel {
+        id: "arcee-ai/trinity-large-preview:free",
+        display: "Trinity Large",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Strong reasoning and analysis. Good for research tasks, data analysis, technical writing, and balanced coding",
+    },
+    FreeModel {
+        id: "qwen/qwen3-vl-30b-a3b-thinking",
+        display: "Qwen3 VL 30B",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "vision",
+        strength: "30B vision+thinking. Good for image analysis, screenshot debugging, chart interpretation, OCR tasks, and visual QA",
+    },
+    // ── Tier 3: Good text models ─────────────────────────────────────────
+    FreeModel {
+        id: "nvidia/nemotron-3-nano-30b-a3b:free",
+        display: "Nemotron 30B",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Efficient 30B model. Good for general coding, quick reasoning tasks, and balanced instruction following",
+    },
+    FreeModel {
+        id: "openai/gpt-oss-20b:free",
+        display: "GPT-OSS 20B",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "OpenAI 20B. Fast coding and quick tasks, good for simple scripts, utility functions, and rapid prototyping",
+    },
+    FreeModel {
+        id: "stepfun/step-3.5-flash:free",
+        display: "Step 3.5 Flash",
+        ctx: "256K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Fast with huge 256K context. Best for processing very long documents, large codebases, and extensive chat histories",
+    },
+    FreeModel {
+        id: "z-ai/glm-4.5-air:free",
+        display: "GLM 4.5 Air",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Multilingual model. Strong Chinese/English bilingual, good for translation, multilingual content, and general conversation",
+    },
+    FreeModel {
+        id: "sourceful/riverflow-v2-standard-preview",
+        display: "Riverflow Standard",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Balanced writing model. Good for everyday content creation, summarization, and natural conversational responses",
+    },
+    // ── Tier 4: Mid-range text models ────────────────────────────────────
+    FreeModel {
+        id: "google/gemma-3-27b-it:free",
+        display: "Gemma 3 27B",
+        ctx: "96K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Google 27B. Good for frontend development, HTML/CSS/JS, React components, and general web development tasks",
     },
     FreeModel {
         id: "mistralai/mistral-small-3.1-24b-instruct:free",
@@ -150,14 +306,89 @@ const FREE_MODELS: &[FreeModel] = &[
         provider: "OpenRouter",
         api_url: "https://openrouter.ai/api/v1/chat/completions",
         key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Efficient 24B instruct. Good for structured output, JSON generation, API responses, and concise technical answers",
     },
     FreeModel {
-        id: "google/gemma-3-27b-it:free",
-        display: "Gemma 3 27B",
+        id: "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+        display: "Dolphin 24B",
+        ctx: "32K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Uncensored 24B model. Best for unrestricted creative writing, roleplay, brainstorming, and open-ended exploration",
+    },
+    FreeModel {
+        id: "nvidia/nemotron-nano-12b-v2-vl:free",
+        display: "Nemotron 12B VL",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "vision",
+        strength: "12B vision model. Efficient image understanding, screenshot analysis, document parsing, and visual question answering",
+    },
+    FreeModel {
+        id: "google/gemma-3-12b-it:free",
+        display: "Gemma 3 12B",
         ctx: "96K",
         provider: "OpenRouter",
         api_url: "https://openrouter.ai/api/v1/chat/completions",
         key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Google 12B. Solid for quick coding tasks, simple scripts, CSS styling, and lightweight web development",
+    },
+    // ── Tier 5: Light / fast text models ─────────────────────────────────
+    FreeModel {
+        id: "nvidia/nemotron-nano-9b-v2:free",
+        display: "Nemotron 9B",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Fast 9B model. Quick utility scripts, simple Q&A, basic coding, and rapid iteration tasks",
+    },
+    FreeModel {
+        id: "sourceful/riverflow-v2-fast",
+        display: "Riverflow V2 Fast",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Fast writing model. Quick drafts, short-form content, social media captions, and rapid content iteration",
+    },
+    FreeModel {
+        id: "sourceful/riverflow-v2-fast-preview",
+        display: "Riverflow Fast Pre",
+        ctx: "128K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Fast writing preview. Quick content generation, short answers, and rapid prototyping of written content",
+    },
+    FreeModel {
+        id: "google/gemma-3n-e4b-it:free",
+        display: "Gemma 3N E4B",
+        ctx: "32K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Efficient 4B model. Quick simple tasks, basic code snippets, short answers, and lightweight assistance",
+    },
+    FreeModel {
+        id: "qwen/qwen3-4b:free",
+        display: "Qwen3 4B",
+        ctx: "32K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Small fast model. Simple coding, quick translations, basic Q&A, and rapid completions",
     },
     FreeModel {
         id: "google/gemma-3-4b-it:free",
@@ -166,7 +397,112 @@ const FREE_MODELS: &[FreeModel] = &[
         provider: "OpenRouter",
         api_url: "https://openrouter.ai/api/v1/chat/completions",
         key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Google 4B. Quick simple tasks, basic HTML/CSS, short code snippets, and lightweight chat",
     },
+    FreeModel {
+        id: "google/gemma-3n-e2b-it:free",
+        display: "Gemma 3N E2B",
+        ctx: "32K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Tiny 2B model. Ultra-fast simple completions, basic formatting, and lightweight assistance",
+    },
+    FreeModel {
+        id: "arcee-ai/trinity-mini:free",
+        display: "Trinity Mini",
+        ctx: "32K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Small reasoning model. Quick analysis, simple logic, and fast concise answers",
+    },
+    FreeModel {
+        id: "liquid/lfm-2.5-1.2b-thinking:free",
+        display: "LFM 1.2B Think",
+        ctx: "32K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Tiny thinking model. Basic step-by-step reasoning at minimal cost, simple math, and quick logic puzzles",
+    },
+    FreeModel {
+        id: "liquid/lfm-2.5-1.2b-instruct:free",
+        display: "LFM 1.2B Instruct",
+        ctx: "32K",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/chat/completions",
+        key_env: "OPENROUTER_API_KEY",
+        category: "text",
+        strength: "Tiny instruct model. Ultra-fast simple instructions, basic formatting, and minimal latency tasks",
+    },
+    // ── Image generation models ──────────────────────────────────────────
+    FreeModel {
+        id: "black-forest-labs/flux.2-max",
+        display: "FLUX.2 Max",
+        ctx: "-",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/images/generations",
+        key_env: "OPENROUTER_API_KEY",
+        category: "image",
+        strength: "Best quality image generation. Photorealistic images, detailed art, complex scenes, and professional-grade visuals",
+    },
+    FreeModel {
+        id: "black-forest-labs/flux.2-pro",
+        display: "FLUX.2 Pro",
+        ctx: "-",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/images/generations",
+        key_env: "OPENROUTER_API_KEY",
+        category: "image",
+        strength: "Professional image generation. High-quality photos, product images, marketing visuals, and detailed illustrations",
+    },
+    FreeModel {
+        id: "bytedance-seed/seedream-4.5",
+        display: "SeeDream 4.5",
+        ctx: "-",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/images/generations",
+        key_env: "OPENROUTER_API_KEY",
+        category: "image",
+        strength: "Creative image generation. Artistic styles, imaginative scenes, anime/illustration, and diverse visual aesthetics",
+    },
+    FreeModel {
+        id: "black-forest-labs/flux.2-flex",
+        display: "FLUX.2 Flex",
+        ctx: "-",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/images/generations",
+        key_env: "OPENROUTER_API_KEY",
+        category: "image",
+        strength: "Flexible style image generation. Style mixing, artistic control, custom aesthetics, and versatile visual output",
+    },
+    FreeModel {
+        id: "black-forest-labs/flux.2-klein-4b",
+        display: "FLUX.2 Klein",
+        ctx: "-",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/images/generations",
+        key_env: "OPENROUTER_API_KEY",
+        category: "image",
+        strength: "Fast lightweight image generation. Quick thumbnails, icons, simple graphics, and rapid visual prototyping",
+    },
+    // ── Embedding model ──────────────────────────────────────────────────
+    FreeModel {
+        id: "nvidia/llama-nemotron-embed-vl-1b-v2:free",
+        display: "Nemotron Embed VL",
+        ctx: "-",
+        provider: "OpenRouter",
+        api_url: "https://openrouter.ai/api/v1/embeddings",
+        key_env: "OPENROUTER_API_KEY",
+        category: "embedding",
+        strength: "Vision-language embedding model. Text and image embeddings for semantic search, similarity matching, and retrieval",
+    },
+    // ── Groq models (ultra-fast inference) ───────────────────────────────
     FreeModel {
         id: "llama-3.3-70b-versatile",
         display: "Llama 3.3 70B",
@@ -174,6 +510,8 @@ const FREE_MODELS: &[FreeModel] = &[
         provider: "Groq",
         api_url: "https://api.groq.com/openai/v1/chat/completions",
         key_env: "GROQ_API_KEY",
+        category: "text",
+        strength: "Ultra-fast Groq inference. Same Llama 3.3 70B but with blazing speed, great for rapid coding and quick iteration",
     },
     FreeModel {
         id: "llama-3.1-8b-instant",
@@ -182,6 +520,8 @@ const FREE_MODELS: &[FreeModel] = &[
         provider: "Groq",
         api_url: "https://api.groq.com/openai/v1/chat/completions",
         key_env: "GROQ_API_KEY",
+        category: "text",
+        strength: "Ultra-fast small model on Groq. Instant responses for simple tasks, basic coding, and rapid prototyping",
     },
     FreeModel {
         id: "gemma2-9b-it",
@@ -190,6 +530,8 @@ const FREE_MODELS: &[FreeModel] = &[
         provider: "Groq",
         api_url: "https://api.groq.com/openai/v1/chat/completions",
         key_env: "GROQ_API_KEY",
+        category: "text",
+        strength: "Fast 9B on Groq. Quick code snippets, simple tasks, and instant lightweight assistance",
     },
     FreeModel {
         id: "mixtral-8x7b-32768",
@@ -198,7 +540,10 @@ const FREE_MODELS: &[FreeModel] = &[
         provider: "Groq",
         api_url: "https://api.groq.com/openai/v1/chat/completions",
         key_env: "GROQ_API_KEY",
+        category: "text",
+        strength: "MoE model on Groq. Good balance of speed and quality for coding, writing, and general tasks",
     },
+    // ── Cerebras models (fastest inference) ──────────────────────────────
     FreeModel {
         id: "llama-3.3-70b",
         display: "Llama 3.3 70B",
@@ -206,6 +551,8 @@ const FREE_MODELS: &[FreeModel] = &[
         provider: "Cerebras",
         api_url: "https://api.cerebras.ai/v1/chat/completions",
         key_env: "CEREBRAS_API_KEY",
+        category: "text",
+        strength: "Fastest inference provider. Llama 3.3 70B at record speed, ideal for rapid development and real-time coding",
     },
     FreeModel {
         id: "qwen-3-32b",
@@ -214,6 +561,8 @@ const FREE_MODELS: &[FreeModel] = &[
         provider: "Cerebras",
         api_url: "https://api.cerebras.ai/v1/chat/completions",
         key_env: "CEREBRAS_API_KEY",
+        category: "text",
+        strength: "Fast 32B on Cerebras. Quick reasoning, decent coding, and rapid general assistance",
     },
 ];
 
@@ -527,48 +876,75 @@ You PLAN before anyone codes. You are the architect, the strategist, the risk as
 
 You are the architect. Design systems that outlast their creators."#;
 
-const AGENT_PROMPT: &str = r#"You are OpenZax in Multi-Agent Command Mode. You coordinate multiple AI agents using spawn_agent to build complex projects.
+const AGENT_PROMPT_TEMPLATE: &str = r#"You are OpenZax in Multi-Agent Command Mode. You coordinate multiple AI agents using spawn_agent to build complex projects.
+
+## CRITICAL: SMART MODEL ROUTING
+You CANNOT run the same model twice simultaneously. You MUST assign a DIFFERENT model to each sub-agent.
+Choose the BEST model for each task based on its strengths. ALWAYS specify the "model" parameter in spawn_agent.
+
+## AVAILABLE MODELS CATALOG:
+{MODEL_CATALOG}
+
+## HOW TO CHOOSE THE RIGHT MODEL:
+1. **Coding tasks (backend/API/systems)**: Use Qwen3 Coder, GPT-OSS 120B, Qwen3 Next 80B, or DeepSeek R1
+2. **Coding tasks (frontend/UI/CSS)**: Use Gemma 3 27B, GPT-OSS 120B, or Qwen3 Coder
+3. **Creative writing / marketing / content**: Use Riverflow V2 Max, Riverflow V2 Pro, or Hermes 3 405B
+4. **Deep reasoning / math / analysis**: Use Qwen3 235B Think, DeepSeek R1, or Qwen3 235B
+5. **Image understanding / visual tasks**: Use Qwen3 VL 235B, Qwen3 VL 30B, or Nemotron 12B VL
+6. **Quick simple tasks / utilities**: Use Step 3.5 Flash, Qwen3 4B, or any lightweight model
+7. **Multilingual / translation**: Use GLM 4.5 Air, Hermes 3 405B, or Qwen3 235B
+8. **Uncensored / creative exploration**: Use Dolphin 24B
 
 ## HOW MULTI-AGENT WORKS:
 
 ### Step 1: Analyze & Decompose
-Break the project into 2-5 independent tasks. Each task must be a COMPLETE, self-contained job.
+Break the project into 2-5 independent tasks. For each task, identify:
+- What TYPE of task it is (coding, writing, design, analysis, etc.)
+- Which specific skill is needed (frontend, backend, marketing, etc.)
+- Which model is BEST suited based on the catalog above
 
-### Step 2: Delegate with spawn_agent
-For EACH task, call spawn_agent with an EXTREMELY detailed instruction. The sub-agent needs to know EXACTLY what to build.
+### Step 2: Delegate with spawn_agent — ALWAYS specify model!
+For EACH task, call spawn_agent with a detailed instruction AND the best model for that task.
+NEVER use your own model (the one you're currently running on) for sub-agents.
 
-GOOD spawn_agent example:
+GOOD examples:
 ```
 spawn_agent({
-  "task": "Create file 'src/server.js' with a complete Express.js server that has: 1) GET /api/users route returning JSON array of users, 2) POST /api/users route that accepts {name, email} and validates both fields, 3) Error handling middleware, 4) CORS enabled, 5) Listens on port 3000. Write the FULL file with ALL code, ALL imports, ALL error handling. Then run 'node src/server.js' to verify it starts."
+  "task": "Create file 'src/server.js' with a complete Express.js server...",
+  "model": "qwen/qwen3-coder:free"
+})
+spawn_agent({
+  "task": "Write compelling marketing copy for the landing page...",
+  "model": "sourceful/riverflow-v2-max-preview"
+})
+spawn_agent({
+  "task": "Analyze this algorithm's complexity and optimize it...",
+  "model": "deepseek/deepseek-r1-0528:free"
 })
 ```
 
-BAD spawn_agent example (never do this):
+BAD examples (NEVER do this):
 ```
-spawn_agent({"task": "Create the backend"})  // TOO VAGUE - agent won't know what to build
-spawn_agent({"task": "Write some HTML"})  // TOO VAGUE - will create empty file
+spawn_agent({"task": "Create the backend"})  // NO model specified + too vague
+spawn_agent({"task": "Write HTML", "model": "SAME_AS_YOURS"})  // Same model = will fail
 ```
 
 ### Step 3: Review Results
-After each agent completes, check the result. If the agent failed or produced incomplete work, spawn a new agent with corrected instructions.
+After each agent completes, check the result. If failed, spawn a new agent with a DIFFERENT model.
 
 ### Step 4: Integration
-After all agents complete, verify the full project works together:
-```
-execute_command("cd project && npm install && npm start")
-```
+After all agents complete, verify everything works together.
 
-## CRITICAL RULES FOR TASK DESCRIPTIONS:
-1. Tell the agent EXACTLY which files to create and what content to put in them
-2. Specify EVERY feature, EVERY route, EVERY component in detail
-3. Tell the agent to write COMPLETE code — not placeholders
-4. Tell the agent to VERIFY its work with execute_command
-5. Include the full file path for every file the agent should create
-6. If a task depends on another task's output, include that context
+## CRITICAL RULES:
+1. ALWAYS specify "model" in spawn_agent — pick from the catalog above
+2. NEVER use the same model for two simultaneous agents
+3. NEVER use your own model for sub-agents
+4. Match task type to model strength (coding model for code, writing model for content, etc.)
+5. Tell the agent EXACTLY which files to create with COMPLETE content
+6. Tell the agent to VERIFY its work with execute_command
 
 ## Your Tools:
-- spawn_agent(task, model) — delegate a task to a sub-agent (THE KEY TOOL)
+- spawn_agent(task, model) — delegate with the RIGHT model for the task
 - read_file, write_file, execute_command — for verification and integration
 - search_files, search_text — to check agent output
 - remember_user(key, value) — save user's personal details permanently
@@ -576,13 +952,13 @@ execute_command("cd project && npm install && npm start")
 ## Workflow:
 1. Read the user's request carefully
 2. Break into clear, detailed subtasks
-3. spawn_agent for each subtask with exhaustive instructions
-4. Review each result
-5. Fix any issues with additional agents or direct tool use
+3. For EACH subtask, pick the BEST model from the catalog
+4. spawn_agent for each subtask with exhaustive instructions + specific model
+5. Review each result — if failed, retry with a different model
 6. Verify the complete project works
 7. Report final status to the user
 
-You are the commander. Delegate with precision. Demand excellence."#;
+You are the commander. Route tasks intelligently. Demand excellence."#;
 
 const HIGH_BOOST: &str = "\n\n## Enhanced Focus\nThink step by step. Double-check every decision. Consider edge cases carefully. Optimize for correctness and robustness. Show your reasoning.";
 
@@ -938,9 +1314,27 @@ impl App {
     }
     fn mode_prompt(&self) -> String {
         let base = match self.mode {
-            Mode::Build => BUILD_PROMPT,
-            Mode::Plan => PLAN_PROMPT,
-            Mode::MultiAgent => AGENT_PROMPT,
+            Mode::Build => BUILD_PROMPT.to_string(),
+            Mode::Plan => PLAN_PROMPT.to_string(),
+            Mode::MultiAgent => {
+                let mut catalog = String::new();
+                for m in FREE_MODELS.iter().filter(|m| m.category == "text" || m.category == "vision") {
+                    catalog.push_str(&format!(
+                        "- **{}** (`{}`): {}\n",
+                        m.display, m.id, m.strength
+                    ));
+                }
+                catalog.push_str("\n### Image Generation Models:\n");
+                for m in FREE_MODELS.iter().filter(|m| m.category == "image") {
+                    catalog.push_str(&format!(
+                        "- **{}** (`{}`): {}\n",
+                        m.display, m.id, m.strength
+                    ));
+                }
+                let current_model = &self.model_name;
+                let prompt = AGENT_PROMPT_TEMPLATE.replace("{MODEL_CATALOG}", &catalog);
+                format!("{}\n\n## YOUR CURRENT MODEL: `{}`\nNEVER assign this model to sub-agents. Always pick a DIFFERENT model.", prompt, current_model)
+            }
         };
         let boost = match TIERS[self.tier_idx] {
             "high" => HIGH_BOOST,
@@ -1852,17 +2246,20 @@ fn draw_skills(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_models(f: &mut Frame, app: &mut App) {
-    let h = (FREE_MODELS.len() as u16) + 6;
-    let popup = popup_rect(f.area(), 58, h);
+    let visible_h = f.area().height.saturating_sub(6).min(30);
+    let popup = popup_rect(f.area(), 72, visible_h + 6);
     app.ov_rect = popup;
     f.render_widget(Clear, popup);
     f.render_widget(Block::default().style(Style::default().bg(BG_POPUP)), popup);
+
+    let chat_count = FREE_MODELS.iter().filter(|m| m.category == "text" || m.category == "vision").count();
+    let title_text = format!(" Switch Model ({}/{}) ", app.ov_idx + 1, FREE_MODELS.len());
     let blk = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(G3))
         .style(Style::default().bg(BG_POPUP))
         .title(Span::styled(
-            " Switch Model ",
+            title_text,
             Style::default().fg(W).add_modifier(Modifier::BOLD),
         ));
     let inner = blk.inner(popup);
@@ -1877,9 +2274,14 @@ fn draw_models(f: &mut Frame, app: &mut App) {
         ])
         .split(inner);
 
+    let header = format!(" {} text/vision  ·  {} image  ·  {} embed  ↑↓ scroll",
+        chat_count,
+        FREE_MODELS.iter().filter(|m| m.category == "image").count(),
+        FREE_MODELS.iter().filter(|m| m.category == "embedding").count(),
+    );
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
-            " Free models (no credit card)",
+            header,
             Style::default().fg(G2).add_modifier(Modifier::BOLD),
         )))
         .style(Style::default().bg(BG_POPUP)),
@@ -1895,14 +2297,35 @@ fn draw_models(f: &mut Frame, app: &mut App) {
     );
 
     app.ov_item_y = rows[2].y;
+    let list_h = rows[2].height as usize;
+
+    let scroll_off = if app.ov_idx >= list_h {
+        app.ov_idx - list_h + 1
+    } else {
+        0
+    };
+
     let mut lines: Vec<Line> = Vec::new();
-    for (i, m) in FREE_MODELS.iter().enumerate() {
+    for (i, m) in FREE_MODELS.iter().enumerate().skip(scroll_off).take(list_h) {
         let sel = i == app.ov_idx;
         let cur = app.model_name == m.id;
         let (fg, bg) = if sel { (BLK, BG_SEL) } else { (G1, BG_POPUP) };
         let mark = if cur { "> " } else { "  " };
+        let cat_badge = match m.category {
+            "vision" => "[V] ",
+            "image" => "[I] ",
+            "embedding" => "[E] ",
+            _ => "    ",
+        };
+        let cat_color = match m.category {
+            "vision" => Color::Rgb(130, 200, 255),
+            "image" => Color::Rgb(255, 150, 200),
+            "embedding" => Color::Rgb(200, 255, 150),
+            _ => if sel { G3 } else { G4 },
+        };
         lines.push(Line::from(vec![
             Span::styled(mark, Style::default().fg(if cur { W } else { G4 }).bg(bg)),
+            Span::styled(cat_badge, Style::default().fg(if sel { BLK } else { cat_color }).bg(bg)),
             Span::styled(format!("{:<20}", m.display), Style::default().fg(fg).bg(bg)),
             Span::styled(
                 format!("{:>6}", m.ctx),
