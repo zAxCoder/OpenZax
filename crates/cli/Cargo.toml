@@ -44,6 +44,8 @@ chrono = { workspace = true }
 rand = "0.8"
 base64 = "0.22"
 zip = "2.1"
+flate2 = "1.1"
+tar = "0.4"
 ctrlc = "3.4"
 arboard = "3"
 

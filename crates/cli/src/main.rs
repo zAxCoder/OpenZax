@@ -773,7 +773,7 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
     println!();
 
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(30))
         .user_agent(format!("openzax-cli/{}", env!("CARGO_PKG_VERSION")))
         .build()?;
 
@@ -790,13 +790,6 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
             let data: serde_json::Value = r.json().await?;
             let latest = data["tag_name"].as_str().unwrap_or("unknown");
             let current = env!("CARGO_PKG_VERSION");
-            let body = data["body"]
-                .as_str()
-                .unwrap_or("")
-                .lines()
-                .take(8)
-                .collect::<Vec<_>>()
-                .join("\n");
 
             println!(
                 "  {} Current version : {}",
@@ -818,22 +811,116 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
                     "★".bright_yellow().bold()
                 );
                 println!();
-                if !body.is_empty() {
-                    println!("  Release notes:");
-                    for line in body.lines() {
-                        println!("    {}", line.dimmed());
+
+                // Try to auto-download and install
+                let asset_name = if cfg!(target_os = "windows") {
+                    "openzax-windows-x86_64.zip"
+                } else if cfg!(target_os = "macos") {
+                    "openzax-macos-aarch64.tar.gz"
+                } else {
+                    "openzax-linux-x86_64.tar.gz"
+                };
+
+                let download_url = data["assets"].as_array().and_then(|assets| {
+                    assets.iter().find_map(|a| {
+                        let name = a["name"].as_str().unwrap_or("");
+                        if name == asset_name {
+                            a["browser_download_url"].as_str().map(|s| s.to_string())
+                        } else {
+                            None
+                        }
+                    })
+                });
+
+                if let Some(url) = download_url {
+                    println!("  {} Downloading {}...", "→".bright_cyan(), asset_name);
+
+                    match client.get(&url).send().await {
+                        Ok(resp) if resp.status().is_success() => {
+                            let bytes = resp.bytes().await?;
+                            let install_dir = dirs::home_dir()
+                                .map(|h| h.join(".openzax").join("bin"))
+                                .unwrap_or_else(|| PathBuf::from("."));
+                            std::fs::create_dir_all(&install_dir)?;
+
+                            let exe_name = if cfg!(target_os = "windows") {
+                                "openzax.exe"
+                            } else {
+                                "openzax"
+                            };
+                            let dest = install_dir.join(exe_name);
+
+                            if cfg!(target_os = "windows") {
+                                // Extract from zip
+                                let cursor = std::io::Cursor::new(&bytes);
+                                let mut archive = zip::ZipArchive::new(cursor)?;
+                                for i in 0..archive.len() {
+                                    let mut file = archive.by_index(i)?;
+                                    let name = file.name().to_string();
+                                    if name.ends_with(exe_name) {
+                                        use std::io::Read;
+                                        let mut buf = Vec::new();
+                                        file.read_to_end(&mut buf)?;
+                                        std::fs::write(&dest, &buf)?;
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // Extract from tar.gz
+                                let cursor = std::io::Cursor::new(&bytes);
+                                let gz = flate2::read::GzDecoder::new(cursor);
+                                let mut archive = tar::Archive::new(gz);
+                                for entry in archive.entries()? {
+                                    let mut entry = entry?;
+                                    let path = entry.path()?.to_path_buf();
+                                    if path.file_name().map(|n| n == exe_name).unwrap_or(false) {
+                                        entry.unpack(&dest)?;
+                                        break;
+                                    }
+                                }
+                                #[cfg(unix)]
+                                {
+                                    use std::os::unix::fs::PermissionsExt;
+                                    std::fs::set_permissions(
+                                        &dest,
+                                        std::fs::Permissions::from_mode(0o755),
+                                    )?;
+                                }
+                            }
+
+                            println!(
+                                "  {} Installed {} to {}",
+                                "✓".green().bold(),
+                                latest,
+                                dest.display()
+                            );
+                            println!();
+
+                            // Also try to copy to cargo bin
+                            if let Some(cargo_bin) = dirs::home_dir()
+                                .map(|h| h.join(".cargo").join("bin").join(exe_name))
+                            {
+                                let _ = std::fs::copy(&dest, &cargo_bin);
+                            }
+
+                            println!(
+                                "  {} Restart your terminal to use the new version.",
+                                "→".bright_cyan()
+                            );
+                        }
+                        _ => {
+                            println!("  {} Download failed", "✗".red().bold());
+                            print_manual_upgrade_instructions();
+                        }
                     }
-                    println!();
+                } else {
+                    println!(
+                        "  {} No binary found for your platform ({})",
+                        "⚠".bright_yellow(),
+                        asset_name
+                    );
+                    print_manual_upgrade_instructions();
                 }
-                println!("  To upgrade:");
-                println!(
-                    "    {}",
-                    "cargo install --git https://github.com/openzax/openzax openzax-cli"
-                        .bright_cyan()
-                );
-                println!();
-                println!("  Or via the installer:");
-                println!("    {}", "https://openzax.dev/install".bright_cyan());
             }
         }
         Ok(r) => {
@@ -844,13 +931,37 @@ async fn handle_upgrade(version: Option<String>) -> anyhow::Result<()> {
             println!(
                 "  {} Visit {} for the latest releases",
                 "→".bright_cyan(),
-                "https://github.com/openzax/openzax/releases".bright_cyan()
+                "https://github.com/zAxCoder/OpenZax/releases".bright_cyan()
             );
         }
     }
 
     println!();
     Ok(())
+}
+
+fn print_manual_upgrade_instructions() {
+    println!();
+    println!("  To upgrade manually:");
+    println!();
+    if cfg!(target_os = "windows") {
+        println!(
+            "    {}",
+            "irm https://raw.githubusercontent.com/zAxCoder/OpenZax/master/install.ps1 | iex"
+                .bright_cyan()
+        );
+    } else {
+        println!(
+            "    {}",
+            "curl -fsSL https://raw.githubusercontent.com/zAxCoder/OpenZax/master/install.sh | bash"
+                .bright_cyan()
+        );
+    }
+    println!();
+    println!(
+        "  Or download from: {}",
+        "https://github.com/zAxCoder/OpenZax/releases".bright_cyan()
+    );
 }
 
 // ── skill commands ────────────────────────────────────────────────────────────

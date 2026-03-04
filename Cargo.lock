@@ -3911,7 +3911,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-cli"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "arboard",
@@ -3925,6 +3925,7 @@ dependencies = [
  "dialoguer",
  "dirs 5.0.1",
  "ed25519-dalek",
+ "flate2",
  "indicatif",
  "openzax-core",
  "openzax-llm-engine",
@@ -3936,6 +3937,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tar",
  "tokio",
  "tokio-stream",
  "toml 0.8.23",
@@ -3947,7 +3949,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-core"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3989,7 +3991,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-llm-engine"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "futures",
@@ -4027,7 +4029,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-mcp-client"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4046,7 +4048,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-sdk"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -4078,7 +4080,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-shell"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4115,7 +4117,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-tauri"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4135,7 +4137,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-test-harness"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4150,7 +4152,7 @@ dependencies = [
 
 [[package]]
 name = "openzax-wasm-runtime"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "openzax-core",
@@ -6056,6 +6058,17 @@ name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
+
+[[package]]
+name = "tar"
+version = "0.4.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d863878d212c87a19c1a610eb53bb01fe12951c0501cf5a0d65f724914a667a"
+dependencies = [
+ "filetime",
+ "libc",
+ "xattr",
+]
 
 [[package]]
 name = "target-lexicon"
@@ -8686,6 +8699,16 @@ dependencies = [
  "rand_core 0.6.4",
  "serde",
  "zeroize",
+]
+
+[[package]]
+name = "xattr"
+version = "1.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32e45ad4206f6d2479085147f02bc2ef834ac85886624a23575ae137c8aa8156"
+dependencies = [
+ "libc",
+ "rustix 1.1.4",
 ]
 
 [[package]]

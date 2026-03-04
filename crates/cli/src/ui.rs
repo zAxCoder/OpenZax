@@ -43,11 +43,23 @@ pub fn print_banner() {
         "███████ ██   ██ ██   ██",
     ];
 
+    let open_grad: [(u8, u8, u8); 5] = [
+        (240, 240, 240),
+        (220, 200, 200),
+        (200, 160, 160),
+        (180, 120, 120),
+        (160, 80, 80),
+    ];
+    let zax_color: (u8, u8, u8) = (180, 20, 20);
+
     for i in 0..5 {
+        let (r, g, b) = open_grad[i];
         let combined = format!(
             "{}  {}",
-            logo_lines[i].truecolor(100, 180, 255).bold(),
-            zax_lines[i].truecolor(255, 180, 60).bold()
+            logo_lines[i].truecolor(r, g, b).bold(),
+            zax_lines[i]
+                .truecolor(zax_color.0, zax_color.1, zax_color.2)
+                .bold()
         );
         println!("{}", center(&combined, w + 20));
     }
