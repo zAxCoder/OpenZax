@@ -4,7 +4,11 @@ use chrono::Utc;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
+
+fn safe_lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,7 +65,11 @@ impl Agent {
             id: Uuid::new_v4(),
             config: Mutex::new(config),
             event_bus,
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(120))
+                .connect_timeout(std::time::Duration::from_secs(15))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new()),
             history: Mutex::new(Vec::new()),
             sub_agents: Arc::new(Mutex::new(Vec::new())),
             user_memory: Mutex::new(user_mem),
@@ -69,31 +77,31 @@ impl Agent {
     }
 
     pub fn clear_history(&self) {
-        self.history.lock().unwrap().clear();
-        self.sub_agents.lock().unwrap().clear();
+        safe_lock(&self.history).clear();
+        safe_lock(&self.sub_agents).clear();
     }
 
     pub fn sub_agent_statuses(&self) -> Vec<SubAgentStatus> {
-        self.sub_agents.lock().unwrap().clone()
+        safe_lock(&self.sub_agents).clone()
     }
 
     pub fn save_user_memory(&self, key: &str, value: &str) {
         {
-            let mut mem = self.user_memory.lock().unwrap();
+            let mut mem = safe_lock(&self.user_memory);
             mem.insert(key.to_string(), value.to_string());
         }
         self.persist_user_memory();
     }
 
     pub fn get_user_memory(&self) -> HashMap<String, String> {
-        self.user_memory.lock().unwrap().clone()
+        safe_lock(&self.user_memory).clone()
     }
 
     fn persist_user_memory(&self) {
         if let Some(home) = dirs::home_dir() {
             let dir = home.join(".openzax");
             let _ = std::fs::create_dir_all(&dir);
-            let mem = self.user_memory.lock().unwrap();
+            let mem = safe_lock(&self.user_memory);
             if let Ok(json) = serde_json::to_string_pretty(&*mem) {
                 let _ = std::fs::write(dir.join("user_memory.json"), json);
             }
@@ -105,23 +113,23 @@ impl Agent {
     }
 
     pub fn set_system_prompt(&self, prompt: String) {
-        self.config.lock().unwrap().system_prompt = Some(prompt);
+        safe_lock(&self.config).system_prompt = Some(prompt);
     }
 
     pub fn set_model(&self, model: String) {
-        self.config.lock().unwrap().model = model;
+        safe_lock(&self.config).model = model;
     }
 
     pub fn set_api_url(&self, url: String) {
-        self.config.lock().unwrap().api_url = url;
+        safe_lock(&self.config).api_url = url;
     }
 
     pub fn set_api_key(&self, key: String) {
-        self.config.lock().unwrap().api_key = Some(key);
+        safe_lock(&self.config).api_key = Some(key);
     }
 
     pub fn model_name(&self) -> String {
-        self.config.lock().unwrap().model.clone()
+        safe_lock(&self.config).model.clone()
     }
 
     pub async fn process(&self, prompt: &str) -> Result<String> {
@@ -143,9 +151,9 @@ impl Agent {
     }
 
     fn build_messages(&self, prompt: &str) -> Vec<serde_json::Value> {
-        let cfg = self.config.lock().unwrap();
-        let history = self.history.lock().unwrap();
-        let user_mem = self.user_memory.lock().unwrap();
+        let cfg = safe_lock(&self.config);
+        let history = safe_lock(&self.history);
+        let user_mem = safe_lock(&self.user_memory);
         let mut messages = Vec::new();
 
         let mut system = cfg.system_prompt.clone().unwrap_or_default();
@@ -170,7 +178,7 @@ impl Agent {
     }
 
     fn save_to_history(&self, user_msg: &str, assistant_msg: &str) {
-        let mut history = self.history.lock().unwrap();
+        let mut history = safe_lock(&self.history);
         history.push(serde_json::json!({"role": "user", "content": user_msg}));
         if !assistant_msg.is_empty() {
             history.push(serde_json::json!({"role": "assistant", "content": assistant_msg}));
@@ -184,7 +192,7 @@ impl Agent {
 
     async fn call_llm(&self, prompt: &str) -> Result<String> {
         let (api_url, api_key, model, temp, max_tok) = {
-            let cfg = self.config.lock().unwrap();
+            let cfg = safe_lock(&self.config);
             (
                 cfg.api_url.clone(),
                 cfg.api_key.clone().unwrap_or_default(),
@@ -601,7 +609,7 @@ impl Agent {
         }
 
         let (api_url, api_key_opt, default_model) = {
-            let cfg = self.config.lock().unwrap();
+            let cfg = safe_lock(&self.config);
             (cfg.api_url.clone(), cfg.api_key.clone(), cfg.model.clone())
         };
         let api_key = match &api_key_opt {
@@ -612,7 +620,7 @@ impl Agent {
 
         let task_short = if task.len() > 60 { format!("{}...", &task[..57]) } else { task.to_string() };
         let agent_idx = {
-            let mut subs = self.sub_agents.lock().unwrap();
+            let mut subs = safe_lock(&self.sub_agents);
             subs.push(SubAgentStatus { task: task_short.clone(), done: false });
             subs.len() - 1
         };
@@ -709,7 +717,7 @@ TASK: {}"#, task
         }
 
         {
-            let mut subs = self.sub_agents.lock().unwrap();
+            let mut subs = safe_lock(&self.sub_agents);
             if let Some(s) = subs.get_mut(agent_idx) {
                 s.done = true;
             }
@@ -942,7 +950,7 @@ TASK: {}"#, task
         })?;
 
         let (api_url, api_key, model, temp, max_tok) = {
-            let cfg = self.config.lock().unwrap();
+            let cfg = safe_lock(&self.config);
             (
                 cfg.api_url.clone(),
                 cfg.api_key.clone(),

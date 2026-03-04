@@ -900,7 +900,7 @@ impl App {
     }
     fn flush(&mut self) {
         let c = {
-            let mut b = self.stream_buf.lock().unwrap();
+            let mut b = self.stream_buf.lock().unwrap_or_else(|p| p.into_inner());
             let s = b.clone();
             b.clear();
             s
@@ -917,9 +917,9 @@ impl App {
         self.bot();
     }
     fn done(&mut self) -> bool {
-        let d = *self.done_flag.lock().unwrap();
+        let d = *self.done_flag.lock().unwrap_or_else(|p| p.into_inner());
         if d {
-            *self.done_flag.lock().unwrap() = false;
+            *self.done_flag.lock().unwrap_or_else(|p| p.into_inner()) = false;
         }
         d
     }
@@ -1971,20 +1971,35 @@ pub async fn run_tui(
         EXIT_FLAG.store(true, Ordering::SeqCst);
     });
 
+    // Panic hook to restore terminal no matter what
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = disable_raw_mode();
+        let _ = execute!(
+            io::stdout(),
+            LeaveAlternateScreen,
+            DisableMouseCapture,
+            DisableBracketedPaste
+        );
+        original_hook(info);
+    }));
+
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture, EnableBracketedPaste)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let res = main_loop(&mut terminal, model_name, api_key, db_path).await;
-    disable_raw_mode()?;
-    execute!(
+
+    // Always restore terminal — even on error
+    let _ = disable_raw_mode();
+    let _ = execute!(
         terminal.backend_mut(),
         LeaveAlternateScreen,
         DisableMouseCapture,
         DisableBracketedPaste
-    )?;
-    terminal.show_cursor()?;
+    );
+    let _ = terminal.show_cursor();
     res
 }
 
@@ -2089,10 +2104,14 @@ async fn main_loop(
             while let Ok(ev) = rx.recv().await {
                 match ev {
                     OzEvent::AgentTokenStream { token, .. } => {
-                        buf.lock().unwrap().push_str(&token);
+                        if let Ok(mut b) = buf.lock() {
+                            b.push_str(&token);
+                        }
                     }
                     OzEvent::AgentOutput { .. } => {
-                        *df.lock().unwrap() = true;
+                        if let Ok(mut d) = df.lock() {
+                            *d = true;
+                        }
                     }
                     _ => {}
                 }
@@ -2115,12 +2134,21 @@ async fn main_loop(
                 app.phase = Phase::Chat;
             }
         }
-        terminal.draw(|f| render(f, &mut app))?;
-        if !event::poll(Duration::from_millis(40))? {
+        if let Err(_) = terminal.draw(|f| render(f, &mut app)) {
+            std::thread::sleep(Duration::from_millis(50));
             continue;
         }
+        match event::poll(Duration::from_millis(40)) {
+            Ok(false) => continue,
+            Err(_) => { std::thread::sleep(Duration::from_millis(50)); continue; }
+            Ok(true) => {}
+        }
 
-        match event::read()? {
+        let ev = match event::read() {
+            Ok(ev) => ev,
+            Err(_) => { std::thread::sleep(Duration::from_millis(50)); continue; }
+        };
+        match ev {
             Event::Mouse(me) => {
                 if app.overlay != Overlay::None {
                     match me.kind {
@@ -2448,9 +2476,14 @@ async fn main_loop(
                         let sb = Arc::clone(&app.stream_buf);
                         let df = Arc::clone(&app.done_flag);
                         tokio::spawn(async move {
-                            if let Err(e) = ag.process_streaming(&text).await {
-                                sb.lock().unwrap().push_str(&format!("\n[Error] {}", e));
-                                *df.lock().unwrap() = true;
+                            let result = ag.process_streaming(&text).await;
+                            if let Err(e) = result {
+                                if let Ok(mut b) = sb.lock() {
+                                    b.push_str(&format!("\n[Error] {}", e));
+                                }
+                            }
+                            if let Ok(mut d) = df.lock() {
+                                *d = true;
                             }
                         });
                     }
