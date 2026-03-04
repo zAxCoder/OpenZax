@@ -1608,7 +1608,6 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
     } else if max_w == 0 {
         all_lines.push(Line::from(Span::styled(&app.input, Style::default().fg(W))));
     } else {
-        let rtl = is_rtl_text(&app.input);
         let full: String = {
             let before: String = app.input[..app.cursor].to_string();
             let after: String = if app.cursor < app.input.len() {
@@ -1641,34 +1640,12 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
                 let line = if let Some(cursor_pos) = chunk.find('\x00') {
                     let before_cur = &chunk[..cursor_pos];
                     let after_cur = &chunk[cursor_pos + 1..];
-                    if rtl {
-                        Line::from(vec![
-                            Span::styled(after_cur.to_string(), Style::default().fg(W)),
-                            Span::styled(cursor_char.to_string(), Style::default().fg(W)),
-                            Span::styled(before_cur.to_string(), Style::default().fg(W)),
-                            Span::styled(
-                                prefix,
-                                Style::default().fg(G1).add_modifier(Modifier::BOLD),
-                            ),
-                        ])
-                        .alignment(Alignment::Right)
-                    } else {
-                        Line::from(vec![
-                            Span::styled(
-                                prefix,
-                                Style::default().fg(G1).add_modifier(Modifier::BOLD),
-                            ),
-                            Span::styled(before_cur.to_string(), Style::default().fg(W)),
-                            Span::styled(cursor_char.to_string(), Style::default().fg(W)),
-                            Span::styled(after_cur.to_string(), Style::default().fg(W)),
-                        ])
-                    }
-                } else if rtl {
                     Line::from(vec![
-                        Span::styled(chunk.replace('\x00', ""), Style::default().fg(W)),
                         Span::styled(prefix, Style::default().fg(G1).add_modifier(Modifier::BOLD)),
+                        Span::styled(before_cur.to_string(), Style::default().fg(W)),
+                        Span::styled(cursor_char.to_string(), Style::default().fg(W)),
+                        Span::styled(after_cur.to_string(), Style::default().fg(W)),
                     ])
-                    .alignment(Alignment::Right)
                 } else {
                     Line::from(vec![
                         Span::styled(prefix, Style::default().fg(G1).add_modifier(Modifier::BOLD)),
@@ -1726,52 +1703,27 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
         match msg {
             Msg::User(t) => {
                 lines.push(Line::default());
-                let rtl = is_rtl_text(t);
                 let wrapped_user = wrap(t, w.saturating_sub(3));
                 for (i, wl) in wrapped_user.iter().enumerate() {
                     let prefix = if i == 0 { " ? " } else { "   " };
                     let pad = " ".repeat(w.saturating_sub(wl.chars().count() + 3));
-                    let mut line = if rtl {
-                        Line::from(vec![
-                            Span::styled(pad, Style::default().bg(user_bg)),
-                            Span::styled(
-                                wl.to_string(),
-                                Style::default()
-                                    .fg(W)
-                                    .bg(user_bg)
-                                    .add_modifier(Modifier::BOLD),
-                            ),
-                            Span::styled(
-                                prefix,
-                                Style::default()
-                                    .fg(ACCENT_BRIGHT)
-                                    .bg(user_bg)
-                                    .add_modifier(Modifier::BOLD),
-                            ),
-                        ])
-                    } else {
-                        Line::from(vec![
-                            Span::styled(
-                                prefix,
-                                Style::default()
-                                    .fg(ACCENT_BRIGHT)
-                                    .bg(user_bg)
-                                    .add_modifier(Modifier::BOLD),
-                            ),
-                            Span::styled(
-                                wl.to_string(),
-                                Style::default()
-                                    .fg(W)
-                                    .bg(user_bg)
-                                    .add_modifier(Modifier::BOLD),
-                            ),
-                            Span::styled(pad, Style::default().bg(user_bg)),
-                        ])
-                    };
-                    if rtl {
-                        line = line.alignment(Alignment::Right);
-                    }
-                    lines.push(line);
+                    lines.push(Line::from(vec![
+                        Span::styled(
+                            prefix,
+                            Style::default()
+                                .fg(ACCENT_BRIGHT)
+                                .bg(user_bg)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            wl.to_string(),
+                            Style::default()
+                                .fg(W)
+                                .bg(user_bg)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(pad, Style::default().bg(user_bg)),
+                    ]));
                 }
                 lines.push(Line::default());
             }
@@ -2570,24 +2522,6 @@ fn push_breaking(
             *cl = 0;
         }
     }
-}
-
-fn is_rtl_text(s: &str) -> bool {
-    for ch in s.chars() {
-        if ('\u{0600}'..='\u{06FF}').contains(&ch)
-            || ('\u{0750}'..='\u{077F}').contains(&ch)
-            || ('\u{08A0}'..='\u{08FF}').contains(&ch)
-            || ('\u{FB50}'..='\u{FDFF}').contains(&ch)
-            || ('\u{FE70}'..='\u{FEFF}').contains(&ch)
-            || ('\u{0590}'..='\u{05FF}').contains(&ch)
-        {
-            return true;
-        }
-        if ch.is_alphabetic() {
-            return false;
-        }
-    }
-    false
 }
 
 fn wrap(text: &str, width: usize) -> Vec<String> {
