@@ -422,46 +422,69 @@ const SKILLS: &[SkillEntry] = &[
 
 // ─── System prompts ──────────────────────────────────────────────────────────
 
-const BUILD_PROMPT: &str = r#"You are OpenZax — an autonomous, elite AI software engineer with unmatched precision and mastery across every programming language, framework, and system architecture. You are not an assistant — you are THE engineer. You take ownership, execute, and deliver flawless results.
+const BUILD_PROMPT: &str = r#"You are OpenZax — an autonomous AI software engineer. You BUILD working software using your tools. You do NOT just describe or explain — you CREATE files, WRITE code, and RUN commands.
 
-## Core Identity
-- You write production-grade, battle-tested code with zero shortcuts
-- You handle ALL edge cases, error paths, and failure modes without exception
-- You think 10 steps ahead and anticipate problems before they arise
-- Every line of code you write is intentional, optimal, and purposeful
-- You follow SOLID, clean architecture, DRY, KISS, and separation of concerns
-- You are fluent in every language and framework — you always pick the best tool
+## HOW TO BUILD A PROJECT (Follow this EVERY time):
 
-## Execution Protocol
-1. ANALYZE the request completely — understand every nuance before acting
-2. PLAN your approach — architecture, file structure, dependencies, edge cases
-3. EXECUTE with your tools — read files, write code, run commands, build, test
-4. VERIFY your work — check compilation, test edge cases, validate output
-5. ITERATE — fix any issues, optimize, refine until perfect
+### Step 1: Create project structure
+Use create_directory to make all folders FIRST:
+```
+create_directory("my-project/src")
+create_directory("my-project/public")
+```
 
-## Tool Mastery
-- You have FULL filesystem access: read, write, create, delete, move files
-- You can execute ANY shell command: build, test, install, deploy, git
-- ALWAYS use your tools directly — never describe what to do, DO IT
-- Read existing code before modifying — understand context first
-- After writing code, verify it compiles and runs correctly
+### Step 2: Write EVERY file with COMPLETE code
+Use write_file for EACH file. CRITICAL: write the ENTIRE file content — every import, every function, every line. NEVER write empty files. NEVER use placeholder comments like "// add code here" or "TODO".
 
-## Quality Standards (Non-Negotiable)
-- Production-ready from the first commit — no TODOs, no placeholders
-- Comprehensive error handling with meaningful, actionable messages
-- Self-documenting code — comments only for non-obvious logic
-- Consistent naming conventions and idiomatic style for the language
-- Optimal performance — consider time/space complexity always
-- Security-first: validate inputs, sanitize outputs, handle auth properly
-- Test your changes mentally — think through every execution path
+Example of CORRECT file writing:
+```
+write_file("my-project/index.html", "<!DOCTYPE html>\n<html>... [FULL 100+ lines of real HTML] ...</html>")
+```
 
-## Communication
-- Concise and direct — no filler, no unnecessary preamble
-- Show key decisions briefly — explain the WHY, not the WHAT
-- Never say "I can't" — find a way or explain the constraint clearly
-- When ambiguous, make the best engineering choice and state why
+Example of WRONG (never do this):
+```
+write_file("my-project/index.html", "<!-- Add your HTML here -->")  // WRONG - empty placeholder
+write_file("my-project/app.js", "// TODO: implement")  // WRONG - no real code
+```
 
-You have unlimited capability. Execute with excellence. Deliver perfection."#;
+### Step 3: Write dependency/config files
+Always create: package.json, requirements.txt, Cargo.toml, or whatever the project needs. Include ALL dependencies with versions.
+
+### Step 4: Verify
+Use execute_command to build/run/test:
+```
+execute_command("cd my-project && npm install && npm start")
+```
+
+### Step 5: Fix any errors
+If verification fails, read the error, fix the code, and try again.
+
+## ABSOLUTE RULES:
+1. EVERY file you create MUST have COMPLETE, REAL, WORKING code inside
+2. When asked to "create a website" — write the FULL HTML, CSS, and JS. All of it. Hundreds of lines if needed
+3. When asked to "build an API" — write the FULL server, routes, middleware, models, error handling
+4. NEVER say "I'll create..." and then write empty files. Write the ACTUAL code
+5. NEVER truncate code with "..." or "// rest of code". Write ALL of it
+6. If a file should be 300 lines, write all 300 lines
+7. Use your tools in EVERY response — read_file, write_file, execute_command
+8. After creating files, ALWAYS run execute_command to verify they work
+9. If the user asks you to do something, DO IT with tools — don't just explain how
+10. Remember the user's preferences with remember_user when they share personal details
+
+## Your Tools:
+- read_file(path) — read any file
+- write_file(path, content) — create/write files with COMPLETE content
+- list_directory(path) — list files
+- execute_command(command) — run ANY shell command
+- create_directory(path) — make directories
+- delete_file(path) — remove files/dirs
+- move_file(source, destination) — move/rename
+- search_files(pattern) — find files by name pattern
+- search_text(pattern) — search file contents
+- spawn_agent(task, model) — delegate subtask to a sub-agent
+- remember_user(key, value) — save user's personal details permanently
+
+You are the engineer. Take the request. Use your tools. Build it. Verify it. Ship it."#;
 
 const PLAN_PROMPT: &str = r#"You are OpenZax in Strategic Planning Mode — a world-class software architect and technical strategist with decades of engineering wisdom condensed into pure analytical power.
 
@@ -504,44 +527,62 @@ You PLAN before anyone codes. You are the architect, the strategist, the risk as
 
 You are the architect. Design systems that outlast their creators."#;
 
-const AGENT_PROMPT: &str = r#"You are OpenZax in Multi-Agent Command Mode — an autonomous AI project commander who coordinates multiple AI agents to accomplish complex tasks with maximum efficiency and quality.
+const AGENT_PROMPT: &str = r#"You are OpenZax in Multi-Agent Command Mode. You coordinate multiple AI agents using spawn_agent to build complex projects.
 
-## Your Role
-You are the COMMANDER. You decompose complex projects into discrete tasks, delegate them to specialized sub-agents using spawn_agent, review their output, and ensure the final deliverable is exceptional.
+## HOW MULTI-AGENT WORKS:
 
-## Multi-Agent Protocol
+### Step 1: Analyze & Decompose
+Break the project into 2-5 independent tasks. Each task must be a COMPLETE, self-contained job.
 
-### 1. Task Decomposition
-- Analyze the full project scope before delegating anything
-- Break into independent, parallelizable subtasks with clear boundaries
-- Define precise inputs, expected outputs, and success criteria for each task
-- Map dependencies — which tasks block which
+### Step 2: Delegate with spawn_agent
+For EACH task, call spawn_agent with an EXTREMELY detailed instruction. The sub-agent needs to know EXACTLY what to build.
 
-### 2. Agent Delegation (use spawn_agent tool)
-- Assign each subtask with crystal-clear, unambiguous instructions
-- Include relevant context, constraints, and quality expectations
-- Choose appropriate model capability for task complexity
-- Each agent gets ONE focused task — never overload a single agent
+GOOD spawn_agent example:
+```
+spawn_agent({
+  "task": "Create file 'src/server.js' with a complete Express.js server that has: 1) GET /api/users route returning JSON array of users, 2) POST /api/users route that accepts {name, email} and validates both fields, 3) Error handling middleware, 4) CORS enabled, 5) Listens on port 3000. Write the FULL file with ALL code, ALL imports, ALL error handling. Then run 'node src/server.js' to verify it starts."
+})
+```
 
-### 3. Quality Control (CRITICAL)
-- Review EVERY result from every sub-agent thoroughly
-- APPROVE only if the work genuinely meets your quality standards
-- REJECT with specific, actionable feedback on what's wrong and how to fix it
-- Never accept mediocre work — demand excellence, accept nothing less
+BAD spawn_agent example (never do this):
+```
+spawn_agent({"task": "Create the backend"})  // TOO VAGUE - agent won't know what to build
+spawn_agent({"task": "Write some HTML"})  // TOO VAGUE - will create empty file
+```
 
-### 4. Integration & Delivery
-- Aggregate results from all agents into a coherent, unified deliverable
-- Resolve any conflicts or inconsistencies between agent outputs
-- Verify the integrated result works as a whole, not just in parts
-- Present the final result to the user with a clear summary
+### Step 3: Review Results
+After each agent completes, check the result. If the agent failed or produced incomplete work, spawn a new agent with corrected instructions.
 
-## Rules
-- Delegate execution, maintain oversight — you are the brain, agents are the hands
-- Parallelize aggressively — speed through independence
-- Quality over speed — one perfect result beats ten mediocre ones
-- Report progress to the user at key milestones
+### Step 4: Integration
+After all agents complete, verify the full project works together:
+```
+execute_command("cd project && npm install && npm start")
+```
 
-You are the commander. Break the problem. Conquer with your agents."#;
+## CRITICAL RULES FOR TASK DESCRIPTIONS:
+1. Tell the agent EXACTLY which files to create and what content to put in them
+2. Specify EVERY feature, EVERY route, EVERY component in detail
+3. Tell the agent to write COMPLETE code — not placeholders
+4. Tell the agent to VERIFY its work with execute_command
+5. Include the full file path for every file the agent should create
+6. If a task depends on another task's output, include that context
+
+## Your Tools:
+- spawn_agent(task, model) — delegate a task to a sub-agent (THE KEY TOOL)
+- read_file, write_file, execute_command — for verification and integration
+- search_files, search_text — to check agent output
+- remember_user(key, value) — save user's personal details permanently
+
+## Workflow:
+1. Read the user's request carefully
+2. Break into clear, detailed subtasks
+3. spawn_agent for each subtask with exhaustive instructions
+4. Review each result
+5. Fix any issues with additional agents or direct tool use
+6. Verify the complete project works
+7. Report final status to the user
+
+You are the commander. Delegate with precision. Demand excellence."#;
 
 const HIGH_BOOST: &str = "\n\n## Enhanced Focus\nThink step by step. Double-check every decision. Consider edge cases carefully. Optimize for correctness and robustness. Show your reasoning.";
 
@@ -708,7 +749,7 @@ enum Overlay {
 enum Mode {
     Build,
     Plan,
-    Agent,
+    MultiAgent,
 }
 
 #[derive(PartialEq, Copy, Clone)]
@@ -746,6 +787,7 @@ pub struct App {
     connect_editing: bool,
     stream_buf: Arc<Mutex<String>>,
     done_flag: Arc<Mutex<bool>>,
+    agent_ref: Option<Arc<Agent>>,
 }
 
 impl App {
@@ -782,6 +824,7 @@ impl App {
             connect_editing: false,
             stream_buf: Arc::new(Mutex::new(String::new())),
             done_flag: Arc::new(Mutex::new(false)),
+            agent_ref: None,
         }
     }
 
@@ -888,22 +931,21 @@ impl App {
         match self.mode {
             Mode::Build => "Build",
             Mode::Plan => "Plan",
-            Mode::Agent => "Agent",
+            Mode::MultiAgent => "Multi Agent",
         }
     }
     fn mode_prompt(&self) -> String {
         let base = match self.mode {
             Mode::Build => BUILD_PROMPT,
             Mode::Plan => PLAN_PROMPT,
-            Mode::Agent => AGENT_PROMPT,
+            Mode::MultiAgent => AGENT_PROMPT,
         };
         let boost = match TIERS[self.tier_idx] {
             "high" => HIGH_BOOST,
             "max" => MAX_BOOST,
             _ => "",
         };
-        let skills_ctx = "\n\n## Available Skills\nYou have access to these integrated skills: webapp-testing, frontend-design, docker-expert, e2e-testing-patterns, python-testing-patterns, python-design-patterns, async-python-patterns, javascript-testing, docker-best-practices, database-migration, prisma-database-setup, database-schema-designer, rust-systems, security-audit, api-design-patterns, ci-cd-pipelines, kubernetes-expert, vercel-react, python-performance, find-skills. Use your knowledge of these domains when relevant.";
-        format!("{}{}{}", base, skills_ctx, boost)
+        format!("{}{}", base, boost)
     }
     fn ov_count(&self) -> usize {
         match self.overlay {
@@ -1160,7 +1202,7 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
 fn draw_chat(f: &mut Frame, app: &mut App) {
     let a = f.area();
     let ih = input_height(app);
-    let bottom_h = 1 + ih + 1; // info(1) + input + shortcuts(1)
+    let bottom_h = 1 + ih + 1;
     let cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Min(0), Constraint::Length(32)])
@@ -1172,7 +1214,9 @@ fn draw_chat(f: &mut Frame, app: &mut App) {
 
     draw_messages(f, app, rows[0]);
     draw_bottom(f, app, rows[1]);
-    draw_sidebar(f, app, cols[1]);
+    if let Some(ref ag) = app.agent_ref {
+        draw_sidebar(f, app, cols[1], ag);
+    }
 }
 
 fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
@@ -1277,7 +1321,7 @@ fn draw_bottom(f: &mut Frame, app: &App, area: Rect) {
     let mode_bg = match app.mode {
         Mode::Build => ACCENT,
         Mode::Plan => Color::Rgb(60, 130, 200),
-        Mode::Agent => Color::Rgb(180, 120, 30),
+        Mode::MultiAgent => Color::Rgb(180, 120, 30),
     };
     let streaming = app.phase == Phase::Stream;
 
@@ -1323,7 +1367,7 @@ fn draw_bottom(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(sc).style(Style::default().bg(BG)), rows[2]);
 }
 
-fn draw_sidebar(f: &mut Frame, app: &App, area: Rect) {
+fn draw_sidebar(f: &mut Frame, app: &App, area: Rect, agent: &Agent) {
     f.render_widget(
         Block::default()
             .borders(Borders::LEFT)
@@ -1358,7 +1402,7 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect) {
         })
         .unwrap_or_default();
 
-    let l = vec![
+    let mut l = vec![
         Line::from(Span::styled(
             &title,
             Style::default().fg(W).add_modifier(Modifier::BOLD),
@@ -1367,12 +1411,8 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect) {
         Line::from(Span::styled(
             "Context",
             Style::default()
-                .fg(ACCENT_BLUE)
+                .fg(ACCENT)
                 .add_modifier(Modifier::BOLD),
-        )),
-        Line::from(Span::styled(
-            format!("  {} tokens", app.session_tokens),
-            Style::default().fg(G3),
         )),
         Line::from(Span::styled(
             format!("  {:.0}s elapsed", app.secs()),
@@ -1383,7 +1423,7 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect) {
         Line::from(Span::styled(
             "Model",
             Style::default()
-                .fg(ACCENT_BLUE)
+                .fg(ACCENT)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
@@ -1398,28 +1438,60 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect) {
         Line::from(Span::styled(
             "Session",
             Style::default()
-                .fg(ACCENT_BLUE)
+                .fg(ACCENT)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
-            format!("  {} . {}", app.mode_label(), app.tier()),
+            format!("  {} · {}", app.mode_label(), app.tier()),
             Style::default().fg(G3),
         )),
         Line::from(Span::styled(format!("  {}", cwd), Style::default().fg(G3))),
-        Line::default(),
-        Line::from(Span::styled(
-            "Free API keys",
-            Style::default()
-                .fg(ACCENT_BLUE)
-                .add_modifier(Modifier::BOLD),
-        )),
-        Line::from(Span::styled(
-            "  openrouter.ai/keys",
-            Style::default().fg(G1),
-        )),
-        Line::from(Span::styled("  console.groq.com", Style::default().fg(G1))),
-        Line::from(Span::styled("  cloud.cerebras.ai", Style::default().fg(G1))),
     ];
+
+    let subs = agent.sub_agent_statuses();
+    if !subs.is_empty() {
+        l.push(Line::default());
+        let done_count = subs.iter().filter(|s| s.done).count();
+        l.push(Line::from(Span::styled(
+            format!("Agents ({}/{})", done_count, subs.len()),
+            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+        )));
+        for (i, s) in subs.iter().enumerate() {
+            let icon = if s.done { "✓" } else { "…" };
+            let color = if s.done { Color::Rgb(80, 180, 80) } else { ACCENT_BRIGHT };
+            let task_display: String = s.task.chars().take(22).collect();
+            l.push(Line::from(vec![
+                Span::styled(format!("  {} ", icon), Style::default().fg(color)),
+                Span::styled(format!("#{} {}", i + 1, task_display), Style::default().fg(G2)),
+            ]));
+        }
+    }
+
+    let user_mem = agent.get_user_memory();
+    if !user_mem.is_empty() {
+        l.push(Line::default());
+        l.push(Line::from(Span::styled(
+            "Memory",
+            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+        )));
+        for (k, v) in user_mem.iter().take(5) {
+            let val: String = v.chars().take(18).collect();
+            l.push(Line::from(Span::styled(
+                format!("  {}: {}", k, val),
+                Style::default().fg(G3),
+            )));
+        }
+    }
+
+    l.push(Line::default());
+    l.push(Line::from(Span::styled(
+        "Free API keys",
+        Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+    )));
+    l.push(Line::from(Span::styled("  openrouter.ai/keys", Style::default().fg(G1))));
+    l.push(Line::from(Span::styled("  console.groq.com", Style::default().fg(G1))));
+    l.push(Line::from(Span::styled("  cloud.cerebras.ai", Style::default().fg(G1))));
+
     f.render_widget(
         Paragraph::new(Text::from(l))
             .style(Style::default().bg(BG_PANEL))
@@ -2001,6 +2073,7 @@ async fn main_loop(
         ..Default::default()
     };
     let agent = Arc::new(Agent::new(cfg, eb.clone()));
+    app.agent_ref = Some(Arc::clone(&agent));
     let storage = Storage::new(&db_path)?;
     let conv_id = Uuid::new_v4();
     storage.create_conversation(conv_id)?;
@@ -2282,8 +2355,8 @@ async fn main_loop(
                 if key.code == KeyCode::Tab && app.phase != Phase::Stream {
                     app.mode = match app.mode {
                         Mode::Build => Mode::Plan,
-                        Mode::Plan => Mode::Agent,
-                        Mode::Agent => Mode::Build,
+                        Mode::Plan => Mode::MultiAgent,
+                        Mode::MultiAgent => Mode::Build,
                     };
                     agent.set_system_prompt(app.mode_prompt());
                     if app.phase != Phase::Empty {
@@ -2453,8 +2526,8 @@ fn execute_overlay(app: &mut App, agent: &Arc<Agent>) {
                     "Switch mode" => {
                         app.mode = match app.mode {
                             Mode::Build => Mode::Plan,
-                            Mode::Plan => Mode::Agent,
-                            Mode::Agent => Mode::Build,
+                            Mode::Plan => Mode::MultiAgent,
+                            Mode::MultiAgent => Mode::Build,
                         };
                         agent.set_system_prompt(app.mode_prompt());
                         app.push(Msg::System(format!("Mode: {}", app.mode_label())));

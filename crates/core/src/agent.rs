@@ -4,7 +4,7 @@ use chrono::Utc;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,27 +30,74 @@ impl Default for AgentConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubAgentStatus {
+    pub task: String,
+    pub done: bool,
+}
+
 pub struct Agent {
     id: Uuid,
     config: Mutex<AgentConfig>,
     event_bus: EventBus,
     client: reqwest::Client,
     history: Mutex<Vec<serde_json::Value>>,
+    sub_agents: Arc<Mutex<Vec<SubAgentStatus>>>,
+    user_memory: Mutex<HashMap<String, String>>,
 }
 
 impl Agent {
     pub fn new(config: AgentConfig, event_bus: EventBus) -> Self {
+        let mut user_mem = HashMap::new();
+        if let Some(home) = dirs::home_dir() {
+            let mem_path = home.join(".openzax").join("user_memory.json");
+            if let Ok(content) = std::fs::read_to_string(&mem_path) {
+                if let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&content) {
+                    user_mem = map;
+                }
+            }
+        }
         Self {
             id: Uuid::new_v4(),
             config: Mutex::new(config),
             event_bus,
             client: reqwest::Client::new(),
             history: Mutex::new(Vec::new()),
+            sub_agents: Arc::new(Mutex::new(Vec::new())),
+            user_memory: Mutex::new(user_mem),
         }
     }
 
     pub fn clear_history(&self) {
         self.history.lock().unwrap().clear();
+        self.sub_agents.lock().unwrap().clear();
+    }
+
+    pub fn sub_agent_statuses(&self) -> Vec<SubAgentStatus> {
+        self.sub_agents.lock().unwrap().clone()
+    }
+
+    pub fn save_user_memory(&self, key: &str, value: &str) {
+        {
+            let mut mem = self.user_memory.lock().unwrap();
+            mem.insert(key.to_string(), value.to_string());
+        }
+        self.persist_user_memory();
+    }
+
+    pub fn get_user_memory(&self) -> HashMap<String, String> {
+        self.user_memory.lock().unwrap().clone()
+    }
+
+    fn persist_user_memory(&self) {
+        if let Some(home) = dirs::home_dir() {
+            let dir = home.join(".openzax");
+            let _ = std::fs::create_dir_all(&dir);
+            let mem = self.user_memory.lock().unwrap();
+            if let Ok(json) = serde_json::to_string_pretty(&*mem) {
+                let _ = std::fs::write(dir.join("user_memory.json"), json);
+            }
+        }
     }
 
     pub fn id(&self) -> Uuid {
@@ -98,10 +145,20 @@ impl Agent {
     fn build_messages(&self, prompt: &str) -> Vec<serde_json::Value> {
         let cfg = self.config.lock().unwrap();
         let history = self.history.lock().unwrap();
+        let user_mem = self.user_memory.lock().unwrap();
         let mut messages = Vec::new();
 
-        if let Some(ref sys) = cfg.system_prompt {
-            messages.push(serde_json::json!({"role": "system", "content": sys}));
+        let mut system = cfg.system_prompt.clone().unwrap_or_default();
+
+        if !user_mem.is_empty() {
+            system.push_str("\n\n## User Profile (remembered across sessions)\n");
+            for (k, v) in user_mem.iter() {
+                system.push_str(&format!("- {}: {}\n", k, v));
+            }
+        }
+
+        if !system.is_empty() {
+            messages.push(serde_json::json!({"role": "system", "content": system}));
         }
 
         for msg in history.iter() {
@@ -321,6 +378,21 @@ impl Agent {
                         "required": ["task"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "remember_user",
+                    "description": "Save personal information about the user for future sessions. Use when the user tells you their name, preferences, coding style, or any personal detail they want you to remember permanently.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "key": { "type": "string", "description": "Category (e.g. 'name', 'language', 'preferred_stack', 'coding_style')" },
+                            "value": { "type": "string", "description": "The information to remember" }
+                        },
+                        "required": ["key", "value"]
+                    }
+                }
             }
         ])
     }
@@ -538,27 +610,62 @@ impl Agent {
         };
         let model = args["model"].as_str().unwrap_or(&default_model).to_string();
 
+        let task_short = if task.len() > 60 { format!("{}...", &task[..57]) } else { task.to_string() };
+        let agent_idx = {
+            let mut subs = self.sub_agents.lock().unwrap();
+            subs.push(SubAgentStatus { task: task_short.clone(), done: false });
+            subs.len() - 1
+        };
+
         let sub_prompt = format!(
-            "You are a focused sub-agent of OpenZax. Complete the following task precisely and return your result.\n\
-            You have full tool access: read_file, write_file, list_directory, execute_command, delete_file, create_directory, move_file, search_files, search_text.\n\
-            Be thorough but concise. Execute the task directly using your tools.\n\n\
-            TASK: {}", task
+r#"You are a focused execution agent for OpenZax. Your ONLY job is to complete the assigned task using your tools.
+
+## CRITICAL RULES — Follow these EXACTLY:
+1. ALWAYS use write_file to create files with COMPLETE, REAL content — never empty or placeholder files
+2. ALWAYS write FULL code — every function body, every import, every line. No shortcuts, no "TODO", no "..."
+3. When building a project, create ALL necessary files: source code, config, dependencies, README
+4. After writing files, use execute_command to verify they work (compile, lint, run tests)
+5. If a file needs 200 lines of code, write ALL 200 lines. Never truncate or summarize code
+6. Include ALL imports, ALL error handling, ALL edge cases in every file you write
+7. For web projects: write complete HTML with full CSS and JS inline or properly linked
+8. For backend projects: write complete routes, middleware, database connections, models
+9. NEVER respond with just text explaining what to do — USE YOUR TOOLS and DO IT
+
+## Your Tools:
+- read_file: read any file
+- write_file: create/overwrite files (ALWAYS write complete content)
+- list_directory: see what files exist
+- execute_command: run shell commands (build, test, install, run)
+- create_directory: make directories
+- delete_file: remove files
+- move_file: move/rename files
+- search_files: find files by pattern
+- search_text: search inside files
+
+## Workflow:
+1. Read existing files if relevant to understand context
+2. Create necessary directories with create_directory
+3. Write ALL files with write_file — every file must be COMPLETE and FUNCTIONAL
+4. Run execute_command to verify your work compiles/runs
+5. Fix any errors found and re-verify
+
+TASK: {}"#, task
         );
 
         let sub_config = AgentConfig {
             api_url: api_url.clone(),
             api_key: Some(api_key.clone()),
             model: model.clone(),
-            temperature: 0.3,
-            max_tokens: 4096,
+            temperature: 0.2,
+            max_tokens: 8192,
             system_prompt: Some(sub_prompt),
         };
         let sub_bus = EventBus::default();
         let sub_agent = Agent::new(sub_config, sub_bus);
 
         let _ = self.event_bus.publish(Event::AgentThinking {
-            agent_id: sub_agent.id(),
-            thought_text: format!("[Sub-Agent] Starting task: {}", &task[..task.len().min(80)]),
+            agent_id: self.id,
+            thought_text: format!("[Agent #{}] {}", agent_idx + 1, task_short),
             timestamp: Utc::now(),
         });
 
@@ -567,8 +674,8 @@ impl Agent {
         ];
 
         let mut final_response = String::new();
-        for _round in 0..5 {
-            match sub_agent.stream_with_tools(&messages, &api_url, &api_key, &model, 0.3, 4096).await {
+        for _round in 0..10 {
+            match sub_agent.stream_with_tools(&messages, &api_url, &api_key, &model, 0.2, 8192).await {
                 Ok((content, tool_calls)) => {
                     if tool_calls.is_empty() {
                         final_response = content;
@@ -593,22 +700,29 @@ impl Agent {
                     }
                 }
                 Err(e) => {
-                    match sub_agent.stream_simple(&messages, &api_url, &api_key, &model, 0.3, 4096).await {
+                    match sub_agent.stream_simple(&messages, &api_url, &api_key, &model, 0.2, 8192).await {
                         Ok(content) => { final_response = content; break; }
-                        Err(_) => { final_response = format!("Sub-agent error: {}", e); break; }
+                        Err(_) => { final_response = format!("Agent #{} error: {}", agent_idx + 1, e); break; }
                     }
                 }
             }
         }
 
+        {
+            let mut subs = self.sub_agents.lock().unwrap();
+            if let Some(s) = subs.get_mut(agent_idx) {
+                s.done = true;
+            }
+        }
+
         let _ = self.event_bus.publish(Event::AgentThinking {
-            agent_id: sub_agent.id(),
-            thought_text: "[Sub-Agent] Task completed".to_string(),
+            agent_id: self.id,
+            thought_text: format!("[Agent #{}] Completed", agent_idx + 1),
             timestamp: Utc::now(),
         });
 
         if final_response.is_empty() {
-            "Sub-agent completed but returned no response".to_string()
+            format!("Agent #{} completed but returned no response", agent_idx + 1)
         } else {
             final_response
         }
@@ -891,10 +1005,15 @@ impl Agent {
                         timestamp: Utc::now(),
                     })?;
 
-                    let result = if tool_name == "spawn_agent" {
-                        self.spawn_sub_agent(&args).await
-                    } else {
-                        Self::execute_tool(tool_name, &args).await
+                    let result = match tool_name {
+                        "spawn_agent" => self.spawn_sub_agent(&args).await,
+                        "remember_user" => {
+                            let key = args["key"].as_str().unwrap_or("");
+                            let val = args["value"].as_str().unwrap_or("");
+                            self.save_user_memory(key, val);
+                            format!("Remembered: {} = {}", key, val)
+                        }
+                        _ => Self::execute_tool(tool_name, &args).await,
                     };
                     let result_preview = if result.len() > 500 {
                         format!("{}...\n[{} chars total]", &result[..500], result.len())
@@ -951,10 +1070,15 @@ impl Agent {
                             timestamp: Utc::now(),
                         })?;
 
-                        let result = if tool_name == "spawn_agent" {
-                            self.spawn_sub_agent(&args).await
-                        } else {
-                            Self::execute_tool(tool_name, &args).await
+                        let result = match tool_name {
+                            "spawn_agent" => self.spawn_sub_agent(&args).await,
+                            "remember_user" => {
+                                let key = args["key"].as_str().unwrap_or("");
+                                let val = args["value"].as_str().unwrap_or("");
+                                self.save_user_memory(key, val);
+                                format!("Remembered: {} = {}", key, val)
+                            }
+                            _ => Self::execute_tool(tool_name, &args).await,
                         };
                         let result_preview = if result.len() > 500 {
                             format!("{}...\n[{} chars total]", &result[..500], result.len())

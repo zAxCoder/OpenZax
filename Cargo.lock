@@ -3952,6 +3952,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "chrono",
+ "dirs 5.0.1",
  "futures-util",
  "reqwest 0.12.28",
  "rusqlite",
