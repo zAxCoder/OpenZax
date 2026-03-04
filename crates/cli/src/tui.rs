@@ -1,8 +1,8 @@
 use chrono::Utc;
 use crossterm::{
     event::{
-        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
-        MouseButton, MouseEventKind,
+        self, DisableBracketedPaste, EnableBracketedPaste, DisableMouseCapture, EnableMouseCapture,
+        Event, KeyCode, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
     },
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -788,6 +788,7 @@ pub struct App {
     stream_buf: Arc<Mutex<String>>,
     done_flag: Arc<Mutex<bool>>,
     agent_ref: Option<Arc<Agent>>,
+    paste_cooldown: Instant,
 }
 
 impl App {
@@ -825,6 +826,7 @@ impl App {
             stream_buf: Arc::new(Mutex::new(String::new())),
             done_flag: Arc::new(Mutex::new(false)),
             agent_ref: None,
+            paste_cooldown: Instant::now(),
         }
     }
 
@@ -1971,7 +1973,7 @@ pub async fn run_tui(
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture, EnableBracketedPaste)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let res = main_loop(&mut terminal, model_name, api_key, db_path).await;
@@ -1979,7 +1981,8 @@ pub async fn run_tui(
     execute!(
         terminal.backend_mut(),
         LeaveAlternateScreen,
-        DisableMouseCapture
+        DisableMouseCapture,
+        DisableBracketedPaste
     )?;
     terminal.show_cursor()?;
     res
@@ -2172,8 +2175,28 @@ async fn main_loop(
                 }
             }
 
+            Event::Paste(text) => {
+                for c in text.chars() {
+                    if c != '\r' {
+                        if c == '\n' {
+                            app.ins('\n');
+                        } else {
+                            app.ins(c);
+                        }
+                    }
+                }
+                app.paste_cooldown = Instant::now();
+                continue;
+            }
+
             Event::Key(key) => {
                 if key.kind != KeyEventKind::Press {
+                    continue;
+                }
+
+                // After a paste, ignore key events for 150ms to prevent
+                // the terminal's duplicate paste-as-keys from firing
+                if app.paste_cooldown.elapsed() < Duration::from_millis(150) {
                     continue;
                 }
 
@@ -2339,11 +2362,13 @@ async fn main_loop(
                 if is_ctrl(&key, 'v') {
                     if let Some(text) = clipboard_paste() {
                         for c in text.chars() {
-                            if c != '\r' {
-                                app.ins(c);
+                            if c == '\r' {
+                                continue;
                             }
+                            app.ins(c);
                         }
                     }
+                    app.paste_cooldown = Instant::now();
                     continue;
                 }
 
