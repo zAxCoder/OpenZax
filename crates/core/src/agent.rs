@@ -649,14 +649,62 @@ impl Agent {
         "qwen/qwen3-coder:free",
         "openai/gpt-oss-120b:free",
         "qwen/qwen3-next-80b-a3b-instruct:free",
-        "deepseek/deepseek-r1-0528:free",
         "meta-llama/llama-3.3-70b-instruct:free",
-        "nousresearch/hermes-3-llama-3.1-405b:free",
-        "arcee-ai/trinity-large-preview:free",
         "stepfun/step-3.5-flash:free",
+        "arcee-ai/trinity-large-preview:free",
         "google/gemma-3-27b-it:free",
         "mistralai/mistral-small-3.1-24b-instruct:free",
+        "openai/gpt-oss-20b:free",
+        "nvidia/nemotron-nano-9b-v2:free",
+        "qwen/qwen3-4b:free",
+        "arcee-ai/trinity-mini:free",
     ];
+
+    fn resolve_model_name(requested: &str) -> String {
+        if requested.contains('/') {
+            return requested.to_string();
+        }
+        let lower = requested.to_lowercase();
+        let known: &[(&str, &str)] = &[
+            ("qwen3-coder", "qwen/qwen3-coder:free"),
+            ("qwen3-next", "qwen/qwen3-next-80b-a3b-instruct:free"),
+            ("qwen3-4b", "qwen/qwen3-4b:free"),
+            ("gpt-oss-120b", "openai/gpt-oss-120b:free"),
+            ("gpt-oss-20b", "openai/gpt-oss-20b:free"),
+            ("llama-3.3-70b", "meta-llama/llama-3.3-70b-instruct:free"),
+            ("llama-3.3", "meta-llama/llama-3.3-70b-instruct:free"),
+            ("gemma-3-27b", "google/gemma-3-27b-it:free"),
+            ("gemma-3", "google/gemma-3-27b-it:free"),
+            ("gemma3", "google/gemma-3-27b-it:free"),
+            (
+                "mistral-small",
+                "mistralai/mistral-small-3.1-24b-instruct:free",
+            ),
+            ("step-3.5", "stepfun/step-3.5-flash:free"),
+            ("trinity-large", "arcee-ai/trinity-large-preview:free"),
+            ("trinity-mini", "arcee-ai/trinity-mini:free"),
+            ("nemotron-nano-9b", "nvidia/nemotron-nano-9b-v2:free"),
+            ("nemotron-nano-12b", "nvidia/nemotron-nano-12b-v2-vl:free"),
+            ("nemotron-3-nano", "nvidia/nemotron-3-nano-30b-a3b:free"),
+            ("deepseek-r1", "deepseek/deepseek-r1-0528:free"),
+        ];
+        for (pat, full) in known {
+            if lower.contains(pat) {
+                return full.to_string();
+            }
+        }
+        for fallback in Self::FALLBACK_MODELS {
+            let short = fallback
+                .split('/')
+                .next_back()
+                .unwrap_or(fallback)
+                .trim_end_matches(":free");
+            if lower.contains(&short.to_lowercase()) || short.to_lowercase().contains(&lower) {
+                return fallback.to_string();
+            }
+        }
+        requested.to_string()
+    }
 
     async fn spawn_sub_agent(&self, args: &serde_json::Value) -> String {
         let task = args["task"].as_str().unwrap_or("");
@@ -673,7 +721,12 @@ impl Agent {
             None => return "Error: no API key configured".to_string(),
         };
 
-        let requested_model = args["model"].as_str().unwrap_or("").to_string();
+        let raw_requested = args["model"].as_str().unwrap_or("").to_string();
+        let requested_model = if raw_requested.is_empty() {
+            String::new()
+        } else {
+            Self::resolve_model_name(&raw_requested)
+        };
         let active_models: Vec<String> = {
             let subs = safe_lock(&self.sub_agents);
             subs.iter()

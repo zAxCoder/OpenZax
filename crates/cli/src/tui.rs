@@ -1166,6 +1166,7 @@ pub struct App {
     agent_ref: Option<Arc<Agent>>,
     paste_cooldown: Instant,
     update_available: Arc<Mutex<Option<String>>>,
+    sidebar_scroll: usize,
 }
 
 impl App {
@@ -1205,6 +1206,7 @@ impl App {
             agent_ref: None,
             paste_cooldown: Instant::now(),
             update_available: Arc::new(Mutex::new(None)),
+            sidebar_scroll: 0,
         }
     }
 
@@ -1606,6 +1608,7 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
     } else if max_w == 0 {
         all_lines.push(Line::from(Span::styled(&app.input, Style::default().fg(W))));
     } else {
+        let rtl = is_rtl_text(&app.input);
         let full: String = {
             let before: String = app.input[..app.cursor].to_string();
             let after: String = if app.cursor < app.input.len() {
@@ -1635,21 +1638,44 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
                 let prefix = if first_line { " > " } else { "   " };
                 first_line = false;
 
-                if let Some(cursor_pos) = chunk.find('\x00') {
+                let line = if let Some(cursor_pos) = chunk.find('\x00') {
                     let before_cur = &chunk[..cursor_pos];
                     let after_cur = &chunk[cursor_pos + 1..];
-                    all_lines.push(Line::from(vec![
+                    if rtl {
+                        Line::from(vec![
+                            Span::styled(after_cur.to_string(), Style::default().fg(W)),
+                            Span::styled(cursor_char.to_string(), Style::default().fg(W)),
+                            Span::styled(before_cur.to_string(), Style::default().fg(W)),
+                            Span::styled(
+                                prefix,
+                                Style::default().fg(G1).add_modifier(Modifier::BOLD),
+                            ),
+                        ])
+                        .alignment(Alignment::Right)
+                    } else {
+                        Line::from(vec![
+                            Span::styled(
+                                prefix,
+                                Style::default().fg(G1).add_modifier(Modifier::BOLD),
+                            ),
+                            Span::styled(before_cur.to_string(), Style::default().fg(W)),
+                            Span::styled(cursor_char.to_string(), Style::default().fg(W)),
+                            Span::styled(after_cur.to_string(), Style::default().fg(W)),
+                        ])
+                    }
+                } else if rtl {
+                    Line::from(vec![
+                        Span::styled(chunk.replace('\x00', ""), Style::default().fg(W)),
                         Span::styled(prefix, Style::default().fg(G1).add_modifier(Modifier::BOLD)),
-                        Span::styled(before_cur.to_string(), Style::default().fg(W)),
-                        Span::styled(cursor_char.to_string(), Style::default().fg(W)),
-                        Span::styled(after_cur.to_string(), Style::default().fg(W)),
-                    ]));
+                    ])
+                    .alignment(Alignment::Right)
                 } else {
-                    all_lines.push(Line::from(vec![
+                    Line::from(vec![
                         Span::styled(prefix, Style::default().fg(G1).add_modifier(Modifier::BOLD)),
                         Span::styled(chunk.replace('\x00', ""), Style::default().fg(W)),
-                    ]));
-                }
+                    ])
+                };
+                all_lines.push(line);
                 pos = end;
             }
         }
@@ -1677,7 +1703,8 @@ fn draw_chat(f: &mut Frame, app: &mut App) {
 
     draw_messages(f, app, rows[0]);
     draw_bottom(f, app, rows[1]);
-    if let Some(ref ag) = app.agent_ref {
+    let ag_clone = app.agent_ref.clone();
+    if let Some(ref ag) = ag_clone {
         draw_sidebar(f, app, cols[1], ag);
     }
 }
@@ -1699,27 +1726,52 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
         match msg {
             Msg::User(t) => {
                 lines.push(Line::default());
+                let rtl = is_rtl_text(t);
                 let wrapped_user = wrap(t, w.saturating_sub(3));
                 for (i, wl) in wrapped_user.iter().enumerate() {
                     let prefix = if i == 0 { " ? " } else { "   " };
                     let pad = " ".repeat(w.saturating_sub(wl.chars().count() + 3));
-                    lines.push(Line::from(vec![
-                        Span::styled(
-                            prefix,
-                            Style::default()
-                                .fg(ACCENT_BRIGHT)
-                                .bg(user_bg)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::styled(
-                            wl.to_string(),
-                            Style::default()
-                                .fg(W)
-                                .bg(user_bg)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::styled(pad, Style::default().bg(user_bg)),
-                    ]));
+                    let mut line = if rtl {
+                        Line::from(vec![
+                            Span::styled(pad, Style::default().bg(user_bg)),
+                            Span::styled(
+                                wl.to_string(),
+                                Style::default()
+                                    .fg(W)
+                                    .bg(user_bg)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
+                            Span::styled(
+                                prefix,
+                                Style::default()
+                                    .fg(ACCENT_BRIGHT)
+                                    .bg(user_bg)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
+                        ])
+                    } else {
+                        Line::from(vec![
+                            Span::styled(
+                                prefix,
+                                Style::default()
+                                    .fg(ACCENT_BRIGHT)
+                                    .bg(user_bg)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
+                            Span::styled(
+                                wl.to_string(),
+                                Style::default()
+                                    .fg(W)
+                                    .bg(user_bg)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
+                            Span::styled(pad, Style::default().bg(user_bg)),
+                        ])
+                    };
+                    if rtl {
+                        line = line.alignment(Alignment::Right);
+                    }
+                    lines.push(line);
                 }
                 lines.push(Line::default());
             }
@@ -1858,7 +1910,7 @@ fn draw_bottom(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(sc).style(Style::default().bg(BG)), rows[2]);
 }
 
-fn draw_sidebar(f: &mut Frame, app: &App, area: Rect, agent: &Agent) {
+fn draw_sidebar(f: &mut Frame, app: &mut App, area: Rect, agent: &Agent) {
     f.render_widget(
         Block::default()
             .borders(Borders::LEFT)
@@ -1948,14 +2000,29 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect, agent: &Agent) {
             } else {
                 ACCENT_BRIGHT
             };
+            let model_tag = s
+                .model
+                .as_deref()
+                .map(|m| {
+                    m.split('/')
+                        .next_back()
+                        .unwrap_or(m)
+                        .trim_end_matches(":free")
+                })
+                .unwrap_or("default");
             let task_display: String = s.task.chars().take(22).collect();
             l.push(Line::from(vec![
                 Span::styled(format!("  {} ", icon), Style::default().fg(color)),
-                Span::styled(
-                    format!("#{} {}", i + 1, task_display),
-                    Style::default().fg(G2),
-                ),
+                Span::styled(format!("#{}", i + 1), Style::default().fg(G2)),
             ]));
+            l.push(Line::from(Span::styled(
+                format!("    {} ", model_tag),
+                Style::default().fg(G3),
+            )));
+            l.push(Line::from(Span::styled(
+                format!("    {}", task_display),
+                Style::default().fg(G2),
+            )));
         }
     }
 
@@ -2013,12 +2080,38 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect, agent: &Agent) {
         )));
     }
 
+    let total_lines = l.len();
+    let vis = inner.height as usize;
+    let max_scroll = total_lines.saturating_sub(vis);
+    app.sidebar_scroll = app.sidebar_scroll.min(max_scroll);
+
     f.render_widget(
         Paragraph::new(Text::from(l))
             .style(Style::default().bg(BG_PANEL))
-            .wrap(Wrap { trim: false }),
+            .wrap(Wrap { trim: false })
+            .scroll((app.sidebar_scroll as u16, 0)),
         inner,
     );
+    if total_lines > vis {
+        let scrollbar_h = inner.height;
+        let thumb_pos = if max_scroll > 0 {
+            (app.sidebar_scroll as u16 * scrollbar_h) / max_scroll as u16
+        } else {
+            0
+        };
+        let sx = area.right().saturating_sub(1);
+        for y in inner.y..inner.y + scrollbar_h {
+            let ch = if y == inner.y + thumb_pos {
+                "█"
+            } else {
+                "│"
+            };
+            f.render_widget(
+                Paragraph::new(ch).style(Style::default().fg(G4).bg(BG_PANEL)),
+                Rect::new(sx, y, 1, 1),
+            );
+        }
+    }
 }
 
 // ─── Overlays (with Clear widget for solid background) ───────────────────────
@@ -2479,6 +2572,24 @@ fn push_breaking(
     }
 }
 
+fn is_rtl_text(s: &str) -> bool {
+    for ch in s.chars() {
+        if ('\u{0600}'..='\u{06FF}').contains(&ch)
+            || ('\u{0750}'..='\u{077F}').contains(&ch)
+            || ('\u{08A0}'..='\u{08FF}').contains(&ch)
+            || ('\u{FB50}'..='\u{FDFF}').contains(&ch)
+            || ('\u{FE70}'..='\u{FEFF}').contains(&ch)
+            || ('\u{0590}'..='\u{05FF}').contains(&ch)
+        {
+            return true;
+        }
+        if ch.is_alphabetic() {
+            return false;
+        }
+    }
+    false
+}
+
 fn wrap(text: &str, width: usize) -> Vec<String> {
     if width == 0 {
         return vec![text.to_string()];
@@ -2843,9 +2954,24 @@ async fn main_loop(
                         _ => {}
                     }
                 } else {
+                    let term_w = crossterm::terminal::size().map(|(w, _)| w).unwrap_or(120);
+                    let sidebar_x = term_w.saturating_sub(32);
+                    let in_sidebar = me.column >= sidebar_x;
                     match me.kind {
-                        MouseEventKind::ScrollUp => app.sup(),
-                        MouseEventKind::ScrollDown => app.sdn(),
+                        MouseEventKind::ScrollUp => {
+                            if in_sidebar {
+                                app.sidebar_scroll = app.sidebar_scroll.saturating_sub(2);
+                            } else {
+                                app.sup();
+                            }
+                        }
+                        MouseEventKind::ScrollDown => {
+                            if in_sidebar {
+                                app.sidebar_scroll = app.sidebar_scroll.saturating_add(2);
+                            } else {
+                                app.sdn();
+                            }
+                        }
                         _ => {}
                     }
                 }
