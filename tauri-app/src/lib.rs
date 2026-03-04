@@ -22,7 +22,7 @@ pub fn run() {
             // Initialize application state
             let state = AppState::new();
             app.manage(state);
-            
+
             tracing::info!("OpenZax Tauri application initialized");
             Ok(())
         })

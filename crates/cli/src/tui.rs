@@ -1,7 +1,7 @@
 use chrono::Utc;
 use crossterm::{
     event::{
-        self, DisableBracketedPaste, EnableBracketedPaste, DisableMouseCapture, EnableMouseCapture,
+        self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
         Event, KeyCode, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
     },
     execute,
@@ -1228,7 +1228,10 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
 
     let user_bg = Color::Rgb(20, 20, 25);
     let thinking_dots = match (app.session_start.elapsed().as_millis() / 400) % 4 {
-        0 => "   ", 1 => ".  ", 2 => ".. ", _ => "...",
+        0 => "   ",
+        1 => ".  ",
+        2 => ".. ",
+        _ => "...",
     };
 
     for (mi, msg) in app.msgs.iter().enumerate() {
@@ -1239,8 +1242,20 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
                     let prefix = if i == 0 { " ? " } else { "   " };
                     let pad = " ".repeat(w.saturating_sub(part.len() + 3));
                     lines.push(Line::from(vec![
-                        Span::styled(prefix, Style::default().fg(ACCENT_BRIGHT).bg(user_bg).add_modifier(Modifier::BOLD)),
-                        Span::styled(part.to_string(), Style::default().fg(W).bg(user_bg).add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            prefix,
+                            Style::default()
+                                .fg(ACCENT_BRIGHT)
+                                .bg(user_bg)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            part.to_string(),
+                            Style::default()
+                                .fg(W)
+                                .bg(user_bg)
+                                .add_modifier(Modifier::BOLD),
+                        ),
                         Span::styled(pad, Style::default().bg(user_bg)),
                     ]));
                 }
@@ -1252,7 +1267,10 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
                 if t.is_empty() && is_streaming {
                     lines.push(Line::from(vec![
                         Span::styled("  ", Style::default()),
-                        Span::styled(format!("Thinking{}", thinking_dots), Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            format!("Thinking{}", thinking_dots),
+                            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+                        ),
                     ]));
                 } else {
                     for wr in wrap(t, w) {
@@ -1264,7 +1282,7 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
                     if is_streaming {
                         lines.push(Line::from(vec![
                             Span::styled("  ", Style::default()),
-                            Span::styled(format!("▍"), Style::default().fg(ACCENT)),
+                            Span::styled("▍", Style::default().fg(ACCENT)),
                         ]));
                     }
                 }
@@ -1330,7 +1348,10 @@ fn draw_bottom(f: &mut Frame, app: &App, area: Rect) {
     let info = Line::from(vec![
         Span::styled(
             format!(" {} ", app.mode_label()),
-            Style::default().fg(W).bg(mode_bg).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(W)
+                .bg(mode_bg)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" ", Style::default()),
         Span::styled(app.tier(), Style::default().fg(ACCENT_BRIGHT)),
@@ -1342,10 +1363,16 @@ fn draw_bottom(f: &mut Frame, app: &App, area: Rect) {
 
     let sc = if streaming {
         let dots = match (app.session_start.elapsed().as_millis() / 500) % 4 {
-            0 => "   ", 1 => ".  ", 2 => ".. ", _ => "...",
+            0 => "   ",
+            1 => ".  ",
+            2 => ".. ",
+            _ => "...",
         };
         Line::from(vec![
-            Span::styled(format!(" working{} ", dots), Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!(" working{} ", dots),
+                Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+            ),
             Span::styled("│ ", Style::default().fg(G4)),
             Span::styled("Esc ", Style::default().fg(G2)),
             Span::styled("cancel", Style::default().fg(G4)),
@@ -1412,9 +1439,7 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect, agent: &Agent) {
         Line::default(),
         Line::from(Span::styled(
             "Context",
-            Style::default()
-                .fg(ACCENT)
-                .add_modifier(Modifier::BOLD),
+            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
             format!("  {:.0}s elapsed", app.secs()),
@@ -1424,9 +1449,7 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect, agent: &Agent) {
         Line::default(),
         Line::from(Span::styled(
             "Model",
-            Style::default()
-                .fg(ACCENT)
-                .add_modifier(Modifier::BOLD),
+            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
             format!("  {}", app.model_short),
@@ -1439,9 +1462,7 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect, agent: &Agent) {
         Line::default(),
         Line::from(Span::styled(
             "Session",
-            Style::default()
-                .fg(ACCENT)
-                .add_modifier(Modifier::BOLD),
+            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
             format!("  {} · {}", app.mode_label(), app.tier()),
@@ -1460,11 +1481,18 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect, agent: &Agent) {
         )));
         for (i, s) in subs.iter().enumerate() {
             let icon = if s.done { "✓" } else { "…" };
-            let color = if s.done { Color::Rgb(80, 180, 80) } else { ACCENT_BRIGHT };
+            let color = if s.done {
+                Color::Rgb(80, 180, 80)
+            } else {
+                ACCENT_BRIGHT
+            };
             let task_display: String = s.task.chars().take(22).collect();
             l.push(Line::from(vec![
                 Span::styled(format!("  {} ", icon), Style::default().fg(color)),
-                Span::styled(format!("#{} {}", i + 1, task_display), Style::default().fg(G2)),
+                Span::styled(
+                    format!("#{} {}", i + 1, task_display),
+                    Style::default().fg(G2),
+                ),
             ]));
         }
     }
@@ -1490,9 +1518,18 @@ fn draw_sidebar(f: &mut Frame, app: &App, area: Rect, agent: &Agent) {
         "Free API keys",
         Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
     )));
-    l.push(Line::from(Span::styled("  openrouter.ai/keys", Style::default().fg(G1))));
-    l.push(Line::from(Span::styled("  console.groq.com", Style::default().fg(G1))));
-    l.push(Line::from(Span::styled("  cloud.cerebras.ai", Style::default().fg(G1))));
+    l.push(Line::from(Span::styled(
+        "  openrouter.ai/keys",
+        Style::default().fg(G1),
+    )));
+    l.push(Line::from(Span::styled(
+        "  console.groq.com",
+        Style::default().fg(G1),
+    )));
+    l.push(Line::from(Span::styled(
+        "  cloud.cerebras.ai",
+        Style::default().fg(G1),
+    )));
 
     f.render_widget(
         Paragraph::new(Text::from(l))
@@ -1986,7 +2023,12 @@ pub async fn run_tui(
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture, EnableBracketedPaste)?;
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        EnableMouseCapture,
+        EnableBracketedPaste
+    )?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let res = main_loop(&mut terminal, model_name, api_key, db_path).await;
@@ -2134,19 +2176,25 @@ async fn main_loop(
                 app.phase = Phase::Chat;
             }
         }
-        if let Err(_) = terminal.draw(|f| render(f, &mut app)) {
+        if terminal.draw(|f| render(f, &mut app)).is_err() {
             std::thread::sleep(Duration::from_millis(50));
             continue;
         }
         match event::poll(Duration::from_millis(40)) {
             Ok(false) => continue,
-            Err(_) => { std::thread::sleep(Duration::from_millis(50)); continue; }
+            Err(_) => {
+                std::thread::sleep(Duration::from_millis(50));
+                continue;
+            }
             Ok(true) => {}
         }
 
         let ev = match event::read() {
             Ok(ev) => ev,
-            Err(_) => { std::thread::sleep(Duration::from_millis(50)); continue; }
+            Err(_) => {
+                std::thread::sleep(Duration::from_millis(50));
+                continue;
+            }
         };
         match ev {
             Event::Mouse(me) => {

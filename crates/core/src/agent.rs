@@ -524,14 +524,24 @@ impl Agent {
                 let pattern = args["pattern"].as_str().unwrap_or("*");
                 let dir = args["directory"].as_str().unwrap_or(".");
                 let mut results = Vec::new();
-                fn walk_glob(dir: &std::path::Path, pattern: &str, results: &mut Vec<String>, depth: usize) {
-                    if depth > 10 { return; }
+                fn walk_glob(
+                    dir: &std::path::Path,
+                    pattern: &str,
+                    results: &mut Vec<String>,
+                    depth: usize,
+                ) {
+                    if depth > 10 {
+                        return;
+                    }
                     if let Ok(entries) = std::fs::read_dir(dir) {
                         for entry in entries.flatten() {
                             let path = entry.path();
                             let name = entry.file_name().to_string_lossy().into_owned();
                             if path.is_dir() {
-                                if !name.starts_with('.') && name != "node_modules" && name != "target" {
+                                if !name.starts_with('.')
+                                    && name != "node_modules"
+                                    && name != "target"
+                                {
                                     walk_glob(&path, pattern, results, depth + 1);
                                 }
                             } else {
@@ -545,7 +555,9 @@ impl Agent {
                                     results.push(path.to_string_lossy().into_owned());
                                 }
                             }
-                            if results.len() >= 100 { return; }
+                            if results.len() >= 100 {
+                                return;
+                            }
                         }
                     }
                 }
@@ -561,37 +573,67 @@ impl Agent {
                 let dir = args["directory"].as_str().unwrap_or(".");
                 let file_pat = args["file_pattern"].as_str();
                 let mut results = Vec::new();
-                fn walk_search(dir: &std::path::Path, pattern: &str, file_pat: Option<&str>, results: &mut Vec<String>, depth: usize) {
-                    if depth > 10 { return; }
+                fn walk_search(
+                    dir: &std::path::Path,
+                    pattern: &str,
+                    file_pat: Option<&str>,
+                    results: &mut Vec<String>,
+                    depth: usize,
+                ) {
+                    if depth > 10 {
+                        return;
+                    }
                     if let Ok(entries) = std::fs::read_dir(dir) {
                         for entry in entries.flatten() {
                             let path = entry.path();
                             let name = entry.file_name().to_string_lossy().into_owned();
                             if path.is_dir() {
-                                if !name.starts_with('.') && name != "node_modules" && name != "target" {
+                                if !name.starts_with('.')
+                                    && name != "node_modules"
+                                    && name != "target"
+                                {
                                     walk_search(&path, pattern, file_pat, results, depth + 1);
                                 }
                             } else {
-                                let match_ext = file_pat.map_or(true, |fp| {
-                                    let fp = fp.trim_start_matches("**/").trim_start_matches('*');
-                                    name.ends_with(fp)
-                                });
+                                let match_ext = match file_pat {
+                                    Some(fp) => {
+                                        let fp =
+                                            fp.trim_start_matches("**/").trim_start_matches('*');
+                                        name.ends_with(fp)
+                                    }
+                                    None => true,
+                                };
                                 if match_ext {
                                     if let Ok(content) = std::fs::read_to_string(&path) {
                                         for (i, line) in content.lines().enumerate() {
                                             if line.contains(pattern) {
-                                                results.push(format!("{}:{}:{}", path.to_string_lossy(), i + 1, line.trim()));
-                                                if results.len() >= 50 { return; }
+                                                results.push(format!(
+                                                    "{}:{}:{}",
+                                                    path.to_string_lossy(),
+                                                    i + 1,
+                                                    line.trim()
+                                                ));
+                                                if results.len() >= 50 {
+                                                    return;
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
-                            if results.len() >= 50 { return; }
+                            if results.len() >= 50 {
+                                return;
+                            }
                         }
                     }
                 }
-                walk_search(std::path::Path::new(dir), pattern, file_pat, &mut results, 0);
+                walk_search(
+                    std::path::Path::new(dir),
+                    pattern,
+                    file_pat,
+                    &mut results,
+                    0,
+                );
                 if results.is_empty() {
                     format!("No matches for '{}' in '{}'", pattern, dir)
                 } else {
@@ -618,15 +660,22 @@ impl Agent {
         };
         let model = args["model"].as_str().unwrap_or(&default_model).to_string();
 
-        let task_short = if task.len() > 60 { format!("{}...", &task[..57]) } else { task.to_string() };
+        let task_short = if task.len() > 60 {
+            format!("{}...", &task[..57])
+        } else {
+            task.to_string()
+        };
         let agent_idx = {
             let mut subs = safe_lock(&self.sub_agents);
-            subs.push(SubAgentStatus { task: task_short.clone(), done: false });
+            subs.push(SubAgentStatus {
+                task: task_short.clone(),
+                done: false,
+            });
             subs.len() - 1
         };
 
         let sub_prompt = format!(
-r#"You are a focused execution agent for OpenZax. Your ONLY job is to complete the assigned task using your tools.
+            r#"You are a focused execution agent for OpenZax. Your ONLY job is to complete the assigned task using your tools.
 
 ## CRITICAL RULES — Follow these EXACTLY:
 1. ALWAYS use write_file to create files with COMPLETE, REAL content — never empty or placeholder files
@@ -657,7 +706,8 @@ r#"You are a focused execution agent for OpenZax. Your ONLY job is to complete t
 4. Run execute_command to verify your work compiles/runs
 5. Fix any errors found and re-verify
 
-TASK: {}"#, task
+TASK: {}"#,
+            task
         );
 
         let sub_config = AgentConfig {
@@ -677,13 +727,14 @@ TASK: {}"#, task
             timestamp: Utc::now(),
         });
 
-        let mut messages = vec![
-            serde_json::json!({"role": "user", "content": task}),
-        ];
+        let mut messages = vec![serde_json::json!({"role": "user", "content": task})];
 
         let mut final_response = String::new();
         for _round in 0..10 {
-            match sub_agent.stream_with_tools(&messages, &api_url, &api_key, &model, 0.2, 8192).await {
+            match sub_agent
+                .stream_with_tools(&messages, &api_url, &api_key, &model, 0.2, 8192)
+                .await
+            {
                 Ok((content, tool_calls)) => {
                     if tool_calls.is_empty() {
                         final_response = content;
@@ -698,7 +749,8 @@ TASK: {}"#, task
                         let tc_id = tc["id"].as_str().unwrap_or("");
                         let tc_name = tc["function"]["name"].as_str().unwrap_or("");
                         let tc_args_str = tc["function"]["arguments"].as_str().unwrap_or("{}");
-                        let parsed: serde_json::Value = serde_json::from_str(tc_args_str).unwrap_or_default();
+                        let parsed: serde_json::Value =
+                            serde_json::from_str(tc_args_str).unwrap_or_default();
                         let result = Self::execute_tool(tc_name, &parsed).await;
                         messages.push(serde_json::json!({
                             "role": "tool",
@@ -708,9 +760,18 @@ TASK: {}"#, task
                     }
                 }
                 Err(e) => {
-                    match sub_agent.stream_simple(&messages, &api_url, &api_key, &model, 0.2, 8192).await {
-                        Ok(content) => { final_response = content; break; }
-                        Err(_) => { final_response = format!("Agent #{} error: {}", agent_idx + 1, e); break; }
+                    match sub_agent
+                        .stream_simple(&messages, &api_url, &api_key, &model, 0.2, 8192)
+                        .await
+                    {
+                        Ok(content) => {
+                            final_response = content;
+                            break;
+                        }
+                        Err(_) => {
+                            final_response = format!("Agent #{} error: {}", agent_idx + 1, e);
+                            break;
+                        }
                     }
                 }
             }
@@ -730,7 +791,10 @@ TASK: {}"#, task
         });
 
         if final_response.is_empty() {
-            format!("Agent #{} completed but returned no response", agent_idx + 1)
+            format!(
+                "Agent #{} completed but returned no response",
+                agent_idx + 1
+            )
         } else {
             final_response
         }
@@ -1113,7 +1177,8 @@ TASK: {}"#, task
                 if err_str.contains("401") {
                     return Err(e);
                 }
-                let fallback = self.stream_simple(&messages, &api_url, &api_key, &model, temp, max_tok)
+                let fallback = self
+                    .stream_simple(&messages, &api_url, &api_key, &model, temp, max_tok)
                     .await?;
                 final_assistant_text = fallback;
             }

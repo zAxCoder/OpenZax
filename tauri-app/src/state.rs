@@ -1,6 +1,6 @@
+use openzax_core::{agent::AgentConfig, storage::Storage};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use openzax_core::{agent::AgentConfig, storage::Storage};
 
 pub struct AppState {
     pub storage: Arc<Mutex<Storage>>,
@@ -18,8 +18,7 @@ impl AppState {
             std::fs::create_dir_all(parent).ok();
         }
 
-        let storage = Storage::new(&storage_path)
-            .expect("Failed to initialize storage");
+        let storage = Storage::new(&storage_path).expect("Failed to initialize storage");
 
         let api_key = std::env::var("OPENZAX_API_KEY")
             .ok()

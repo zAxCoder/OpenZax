@@ -1,9 +1,9 @@
-use tauri::State;
-use serde::{Deserialize, Serialize};
 use crate::state::AppState;
 use crate::ChatMessage;
 use openzax_core::agent::Agent;
 use openzax_core::event::EventBus;
+use serde::{Deserialize, Serialize};
+use tauri::State;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SendMessageRequest {
@@ -67,14 +67,28 @@ pub struct ModelInfo {
 }
 
 #[tauri::command]
-pub async fn list_models(
-    _state: State<'_, AppState>,
-) -> Result<Vec<ModelInfo>, String> {
+pub async fn list_models(_state: State<'_, AppState>) -> Result<Vec<ModelInfo>, String> {
     Ok(vec![
-        ModelInfo { id: "deepseek/deepseek-r1-0528:free".into(), name: "DeepSeek R1".into(), provider: "OpenRouter".into() },
-        ModelInfo { id: "meta-llama/llama-3.3-70b-instruct:free".into(), name: "Llama 3.3 70B".into(), provider: "OpenRouter".into() },
-        ModelInfo { id: "qwen/qwen3-235b-a22b:free".into(), name: "Qwen3 235B".into(), provider: "OpenRouter".into() },
-        ModelInfo { id: "google/gemma-3-27b-it:free".into(), name: "Gemma 3 27B".into(), provider: "OpenRouter".into() },
+        ModelInfo {
+            id: "deepseek/deepseek-r1-0528:free".into(),
+            name: "DeepSeek R1".into(),
+            provider: "OpenRouter".into(),
+        },
+        ModelInfo {
+            id: "meta-llama/llama-3.3-70b-instruct:free".into(),
+            name: "Llama 3.3 70B".into(),
+            provider: "OpenRouter".into(),
+        },
+        ModelInfo {
+            id: "qwen/qwen3-235b-a22b:free".into(),
+            name: "Qwen3 235B".into(),
+            provider: "OpenRouter".into(),
+        },
+        ModelInfo {
+            id: "google/gemma-3-27b-it:free".into(),
+            name: "Gemma 3 27B".into(),
+            provider: "OpenRouter".into(),
+        },
     ])
 }
 
