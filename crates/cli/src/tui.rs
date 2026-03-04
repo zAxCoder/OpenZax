@@ -1378,9 +1378,21 @@ impl App {
 
 // ─── Input height helper ──────────────────────────────────────────────────────
 
-fn input_height(app: &App) -> u16 {
-    let lines = app.input.split('\n').count().max(3);
-    ((lines + 2) as u16).min(10)
+fn input_height_with_width(app: &App, width: u16) -> u16 {
+    let usable = (width as usize).saturating_sub(6);
+    if usable == 0 || app.input.is_empty() {
+        return 5;
+    }
+    let mut total_lines = 0usize;
+    for line in app.input.split('\n') {
+        let char_count = line.chars().count();
+        if char_count == 0 {
+            total_lines += 1;
+        } else {
+            total_lines += (char_count + usable - 1) / usable;
+        }
+    }
+    ((total_lines.max(3) + 2) as u16).min(12)
 }
 
 // Helper to detect Ctrl+letter
@@ -1421,7 +1433,7 @@ fn render(f: &mut Frame, app: &mut App) {
 fn draw_empty(f: &mut Frame, app: &App) {
     let a = f.area();
     let brand_h = BRAND_OPEN.len() as u16;
-    let ih = input_height(app);
+    let ih = input_height_with_width(app, a.width);
 
     let has_update = app
         .update_available
@@ -1580,6 +1592,7 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(blk, area);
 
     let cursor_char = if app.cursor_visible { "\u{2588}" } else { " " };
+    let max_w = inner.width.saturating_sub(4) as usize;
 
     let mut all_lines: Vec<Line> = Vec::new();
 
@@ -1590,47 +1603,54 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
             Span::styled("Ask anything...  ", Style::default().fg(G4)),
             Span::styled("\"Fix broken tests\"", Style::default().fg(G3)),
         ]));
+    } else if max_w == 0 {
+        all_lines.push(Line::from(Span::styled(&app.input, Style::default().fg(W))));
     } else {
-        let before = &app.input[..app.cursor];
-        let after = if app.cursor < app.input.len() {
-            &app.input[app.cursor..]
-        } else {
-            ""
+        let full: String = {
+            let before: String = app.input[..app.cursor].to_string();
+            let after: String = if app.cursor < app.input.len() {
+                app.input[app.cursor..].to_string()
+            } else {
+                String::new()
+            };
+            format!("{}\x00{}", before, after)
         };
 
-        let before_parts: Vec<&str> = before.split('\n').collect();
-        let after_parts: Vec<&str> = after.split('\n').collect();
-        let cursor_line_idx = before_parts.len() - 1;
-        let total_lines = before_parts.len() + after_parts.len() - 1;
+        let mut first_line = true;
+        for logical_line in full.split('\n') {
+            let chars: Vec<char> = logical_line.chars().collect();
+            if chars.is_empty() {
+                let prefix = if first_line { " > " } else { "   " };
+                first_line = false;
+                all_lines.push(Line::from(Span::styled(
+                    prefix,
+                    Style::default().fg(G1).add_modifier(Modifier::BOLD),
+                )));
+                continue;
+            }
+            let mut pos = 0;
+            while pos < chars.len() {
+                let end = (pos + max_w).min(chars.len());
+                let chunk: String = chars[pos..end].iter().collect();
+                let prefix = if first_line { " > " } else { "   " };
+                first_line = false;
 
-        for i in 0..total_lines {
-            let prefix = if i == 0 { " > " } else { "   " };
-
-            if i < cursor_line_idx {
-                // Lines before the cursor line
-                all_lines.push(Line::from(vec![
-                    Span::styled(prefix, Style::default().fg(G1).add_modifier(Modifier::BOLD)),
-                    Span::styled(before_parts[i].to_string(), Style::default().fg(W)),
-                ]));
-            } else if i == cursor_line_idx {
-                // The cursor line
-                let before_on_line = before_parts[cursor_line_idx];
-                let after_on_line = after_parts.first().copied().unwrap_or("");
-                all_lines.push(Line::from(vec![
-                    Span::styled(prefix, Style::default().fg(G1).add_modifier(Modifier::BOLD)),
-                    Span::styled(before_on_line.to_string(), Style::default().fg(W)),
-                    Span::styled(cursor_char.to_string(), Style::default().fg(W)),
-                    Span::styled(after_on_line.to_string(), Style::default().fg(W)),
-                ]));
-            } else {
-                // Lines after the cursor
-                let after_idx = i - cursor_line_idx;
-                if after_idx < after_parts.len() {
+                if let Some(cursor_pos) = chunk.find('\x00') {
+                    let before_cur = &chunk[..cursor_pos];
+                    let after_cur = &chunk[cursor_pos + 1..];
                     all_lines.push(Line::from(vec![
                         Span::styled(prefix, Style::default().fg(G1).add_modifier(Modifier::BOLD)),
-                        Span::styled(after_parts[after_idx].to_string(), Style::default().fg(W)),
+                        Span::styled(before_cur.to_string(), Style::default().fg(W)),
+                        Span::styled(cursor_char.to_string(), Style::default().fg(W)),
+                        Span::styled(after_cur.to_string(), Style::default().fg(W)),
+                    ]));
+                } else {
+                    all_lines.push(Line::from(vec![
+                        Span::styled(prefix, Style::default().fg(G1).add_modifier(Modifier::BOLD)),
+                        Span::styled(chunk.replace('\x00', ""), Style::default().fg(W)),
                     ]));
                 }
+                pos = end;
             }
         }
     }
@@ -1643,7 +1663,8 @@ fn draw_input(f: &mut Frame, app: &App, area: Rect) {
 
 fn draw_chat(f: &mut Frame, app: &mut App) {
     let a = f.area();
-    let ih = input_height(app);
+    let chat_input_w = a.width.saturating_sub(32 + 4);
+    let ih = input_height_with_width(app, chat_input_w);
     let bottom_h = 1 + ih + 1;
     let cols = Layout::default()
         .direction(Direction::Horizontal)
@@ -1678,9 +1699,10 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
         match msg {
             Msg::User(t) => {
                 lines.push(Line::default());
-                for (i, part) in t.split('\n').enumerate() {
+                let wrapped_user = wrap(t, w.saturating_sub(3));
+                for (i, wl) in wrapped_user.iter().enumerate() {
                     let prefix = if i == 0 { " ? " } else { "   " };
-                    let pad = " ".repeat(w.saturating_sub(part.len() + 3));
+                    let pad = " ".repeat(w.saturating_sub(wl.chars().count() + 3));
                     lines.push(Line::from(vec![
                         Span::styled(
                             prefix,
@@ -1690,7 +1712,7 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
                                 .add_modifier(Modifier::BOLD),
                         ),
                         Span::styled(
-                            part.to_string(),
+                            wl.to_string(),
                             Style::default()
                                 .fg(W)
                                 .bg(user_bg)
@@ -1768,7 +1790,7 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn draw_bottom(f: &mut Frame, app: &App, area: Rect) {
-    let ih = input_height(app);
+    let ih = input_height_with_width(app, area.width);
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -2429,6 +2451,34 @@ fn draw_models(f: &mut Frame, app: &mut App) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+fn push_breaking(
+    out: &mut Vec<String>,
+    cur: &mut String,
+    cl: &mut usize,
+    word: &str,
+    width: usize,
+) {
+    let chars: Vec<char> = word.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let remaining = width.saturating_sub(*cl);
+        if remaining == 0 {
+            out.push(std::mem::take(cur));
+            *cl = 0;
+            continue;
+        }
+        let take = remaining.min(chars.len() - i);
+        let chunk: String = chars[i..i + take].iter().collect();
+        cur.push_str(&chunk);
+        *cl += take;
+        i += take;
+        if *cl >= width && i < chars.len() {
+            out.push(std::mem::take(cur));
+            *cl = 0;
+        }
+    }
+}
+
 fn wrap(text: &str, width: usize) -> Vec<String> {
     if width == 0 {
         return vec![text.to_string()];
@@ -2440,20 +2490,30 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
             continue;
         }
         let mut cur = String::new();
-        let mut cl = 0;
+        let mut cl = 0usize;
         for w in raw.split_whitespace() {
             let wl = w.chars().count();
             if cl == 0 {
-                cur.push_str(w);
-                cl = wl;
+                if wl <= width {
+                    cur.push_str(w);
+                    cl = wl;
+                } else {
+                    push_breaking(&mut out, &mut cur, &mut cl, w, width);
+                }
             } else if cl + 1 + wl <= width {
                 cur.push(' ');
                 cur.push_str(w);
                 cl += 1 + wl;
             } else {
-                out.push(std::mem::take(&mut cur));
-                cur.push_str(w);
-                cl = wl;
+                if wl <= width {
+                    out.push(std::mem::take(&mut cur));
+                    cur.push_str(w);
+                    cl = wl;
+                } else {
+                    cur.push(' ');
+                    cl += 1;
+                    push_breaking(&mut out, &mut cur, &mut cl, w, width);
+                }
             }
         }
         if !cur.is_empty() {
