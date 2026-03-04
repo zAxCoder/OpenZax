@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenZax</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0a;--panel:#101010;--input:#161616;--border:#2a2a2a;
+  --w:#f5f5f5;--g1:#b4b4b4;--g2:#787878;--g3:#464646;--g4:#2d2d2d;
+  --blue:#64b4ff;--gold:#ffb43c;--red:#ff5555;--green:#50fa7b;
+}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--w);height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+#app{display:flex;flex:1;overflow:hidden}
+.sidebar{width:260px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 16px}
+.sidebar h2{font-size:13px;color:var(--blue);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px}
+.sidebar .info{font-size:12px;color:var(--g2);margin-bottom:6px}
+.sidebar .info span{color:var(--g1)}
+.sidebar .section{margin-top:20px}
+.sidebar .keys{margin-top:auto;padding-top:16px;border-top:1px solid var(--border)}
+.sidebar .keys a{display:block;font-size:11px;color:var(--g1);text-decoration:none;margin:3px 0}
+.sidebar .keys a:hover{color:var(--blue)}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.header{padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--panel)}
+.header .logo{font-weight:700;font-size:16px}
+.header .logo .open{color:var(--blue)}
+.header .logo .zax{color:var(--gold)}
+.header .model{font-size:12px;color:var(--g2);margin-left:auto}
+.header select{background:var(--input);color:var(--g1);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px;cursor:pointer}
+.messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:4px}
+.messages::-webkit-scrollbar{width:6px}
+.messages::-webkit-scrollbar-thumb{background:var(--g4);border-radius:3px}
+.msg{padding:10px 14px;border-radius:8px;max-width:85%;font-size:14px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word}
+.msg.user{align-self:flex-end;background:var(--blue);color:#000;font-weight:500;border-bottom-right-radius:2px}
+.msg.assistant{align-self:flex-start;background:var(--panel);color:var(--g1);border:1px solid var(--border);border-bottom-left-radius:2px}
+.msg.system{align-self:center;background:transparent;color:var(--g3);font-size:12px;font-style:italic}
+.msg.error{align-self:center;background:rgba(255,85,85,0.1);color:var(--red);font-size:13px;border:1px solid rgba(255,85,85,0.2)}
+.input-area{padding:12px 20px;border-top:1px solid var(--border);background:var(--panel)}
+.input-wrap{display:flex;gap:8px;align-items:flex-end}
+.input-wrap textarea{flex:1;background:var(--input);color:var(--w);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:14px;font-family:inherit;resize:none;outline:none;min-height:44px;max-height:140px}
+.input-wrap textarea:focus{border-color:var(--blue)}
+.input-wrap textarea::placeholder{color:var(--g3)}
+.input-wrap button{background:var(--blue);color:#000;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.input-wrap button:hover{opacity:0.9}
+.input-wrap button:disabled{opacity:0.4;cursor:not-allowed}
+.shortcuts{font-size:11px;color:var(--g3);margin-top:6px;text-align:center}
+.shortcuts kbd{background:var(--input);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px;color:var(--g2)}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+.empty .brand{text-align:center}
+.empty .brand h1{font-size:42px;font-weight:800;letter-spacing:-1px}
+.empty .brand h1 .open{color:var(--blue)}
+.empty .brand h1 .zax{color:var(--gold)}
+.empty .brand p{color:var(--g2);font-size:14px;margin-top:6px}
+.typing{display:inline-flex;gap:4px;padding:8px 14px}
+.typing span{width:6px;height:6px;background:var(--g2);border-radius:50%;animation:bounce .6s infinite alternate}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{to{opacity:.3;transform:translateY(-4px)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="sidebar">
+    <h2>Session</h2>
+    <div class="info">Model: <span id="sb-model">DeepSeek R1</span></div>
+    <div class="info">Provider: <span id="sb-provider">OpenRouter</span></div>
+    <div class="info">Tokens: <span id="sb-tokens">0</span></div>
+    <div class="info">Cost: <span>$0.00 (free)</span></div>
+    <div class="section">
+      <h2>API Key</h2>
+      <input id="key-input" type="password" placeholder="sk-or-v1-..." style="width:100%;background:var(--input);color:var(--g1);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;margin-top:6px;outline:none">
+      <button id="key-save" style="width:100%;margin-top:6px;background:var(--gold);color:#000;border:none;border-radius:4px;padding:6px;font-size:12px;font-weight:600;cursor:pointer">Save Key</button>
+    </div>
+    <div class="keys">
+      <h2>Free API Keys</h2>
+      <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>
+      <a href="https://console.groq.com" target="_blank">console.groq.com</a>
+      <a href="https://cloud.cerebras.ai" target="_blank">cloud.cerebras.ai</a>
+    </div>
+  </div>
+  <div class="main">
+    <div class="header">
+      <div class="logo"><span class="open">OPEN</span><span class="zax">ZAX</span></div>
+      <select id="model-select">
+        <option value="deepseek/deepseek-r1-0528:free">DeepSeek R1</option>
+        <option value="stepfun/step-3.5-flash:free">Step 3.5 Flash</option>
+        <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B</option>
+        <option value="qwen/qwen3-235b-a22b:free">Qwen3 235B</option>
+        <option value="mistralai/mistral-small-3.1-24b-instruct:free">Mistral Small 3.1</option>
+        <option value="google/gemma-3-27b-it:free">Gemma 3 27B</option>
+      </select>
+      <div class="model">v0.6.3</div>
+    </div>
+    <div class="messages" id="messages">
+      <div class="empty">
+        <div class="brand">
+          <h1><span class="open">OPEN</span><span class="zax">ZAX</span></h1>
+          <p>Secure AI Development Assistant</p>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea id="prompt" rows="1" placeholder="Ask anything... &quot;Fix broken tests&quot;"></textarea>
+        <button id="send" onclick="sendMessage()">Send</button>
+      </div>
+      <div class="shortcuts"><kbd>Enter</kbd> send &nbsp; <kbd>Shift+Enter</kbd> newline</div>
+    </div>
+  </div>
+</div>
+<script>
+const INVOKE = window.__TAURI__?.core?.invoke || window.__TAURI__?.tauri?.invoke;
+let apiKey = localStorage.getItem('openzax_api_key') || '';
+let tokenCount = 0;
+const messagesEl = document.getElementById('messages');
+const promptEl = document.getElementById('prompt');
+const sendBtn = document.getElementById('send');
+const modelSelect = document.getElementById('model-select');
+const keyInput = document.getElementById('key-input');
+
+keyInput.value = apiKey ? apiKey.slice(0,5)+'...'+apiKey.slice(-4) : '';
+
+document.getElementById('key-save').onclick = () => {
+  apiKey = keyInput.value.trim();
+  if(apiKey) {
+    localStorage.setItem('openzax_api_key', apiKey);
+    keyInput.value = apiKey.slice(0,5)+'...'+apiKey.slice(-4);
+    addMsg('system', 'API key saved');
+  }
+};
+
+modelSelect.onchange = () => {
+  const name = modelSelect.options[modelSelect.selectedIndex].text;
+  document.getElementById('sb-model').textContent = name;
+  addMsg('system', 'Model: ' + name);
+};
+
+promptEl.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+promptEl.addEventListener('input', () => {
+  promptEl.style.height = 'auto';
+  promptEl.style.height = Math.min(promptEl.scrollHeight, 140) + 'px';
+});
+
+function addMsg(role, content) {
+  const empty = messagesEl.querySelector('.empty');
+  if(empty) empty.remove();
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.textContent = content;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+
+async function sendMessage() {
+  const text = promptEl.value.trim();
+  if(!text) return;
+  promptEl.value = '';
+  promptEl.style.height = 'auto';
+  addMsg('user', text);
+  sendBtn.disabled = true;
+
+  const typing = document.createElement('div');
+  typing.className = 'typing';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  messagesEl.appendChild(typing);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  try {
+    if(INVOKE) {
+      const resp = await INVOKE('send_message', { request: { content: text } });
+      typing.remove();
+      addMsg('assistant', resp.message.content);
+      tokenCount += Math.ceil(text.length/4) + Math.ceil(resp.message.content.length/4);
+    } else {
+      if(!apiKey) { typing.remove(); addMsg('error','No API key. Add your key in the sidebar.'); sendBtn.disabled=false; return; }
+      const model = modelSelect.value;
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method:'POST',
+        headers:{'Authorization':'Bearer '+apiKey,'Content-Type':'application/json','HTTP-Referer':'https://openzax.dev','X-Title':'OpenZax'},
+        body:JSON.stringify({model,messages:[{role:'user',content:text}],max_tokens:4096,stream:false})
+      });
+      typing.remove();
+      if(!res.ok) {
+        const err = await res.text();
+        if(res.status===401) addMsg('error','Invalid API key (401). Check your key at openrouter.ai/keys');
+        else addMsg('error','API Error ('+res.status+'): '+err.slice(0,200));
+        sendBtn.disabled=false; return;
+      }
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content || 'No response';
+      addMsg('assistant', content);
+      tokenCount += Math.ceil(text.length/4) + Math.ceil(content.length/4);
+    }
+    document.getElementById('sb-tokens').textContent = tokenCount;
+  } catch(e) {
+    typing.remove();
+    addMsg('error', 'Connection error: ' + e.message);
+  }
+  sendBtn.disabled = false;
+  promptEl.focus();
+}
+</script>
+</body>
+</html>

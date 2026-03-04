@@ -15,15 +15,13 @@ members = [
     "crates/enterprise",
     "crates/ai-core",
     "crates/test-harness",
-    # UI components require additional setup (Node.js, Trunk)
-    # Uncomment when ready to build desktop app:
-    # "tauri-app",
-    # "ui",
+    "tauri-app",
+    # "ui",  # Leptos frontend (requires trunk + wasm-pack setup)
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.6.3"
+version = "0.7.0"
 edition = "2021"
 rust-version = "1.82"
 authors = ["OpenZax Team"]

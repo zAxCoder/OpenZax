@@ -249,6 +249,52 @@ impl Agent {
                         "required": ["source", "destination"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_files",
+                    "description": "Search for files matching a glob pattern recursively. Returns matching file paths.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "pattern": { "type": "string", "description": "Glob pattern (e.g. '*.rs', 'src/**/*.ts', '*.py')" },
+                            "directory": { "type": "string", "description": "Starting directory (default: current dir)" }
+                        },
+                        "required": ["pattern"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_text",
+                    "description": "Search file contents for a text pattern (regex supported). Returns matching lines with file paths and line numbers.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "pattern": { "type": "string", "description": "Text or regex pattern to search for" },
+                            "directory": { "type": "string", "description": "Directory to search in (default: current dir)" },
+                            "file_pattern": { "type": "string", "description": "Only search files matching this glob (e.g. '*.rs')" }
+                        },
+                        "required": ["pattern"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "spawn_agent",
+                    "description": "Spawn a sub-agent to handle a specific task autonomously. The sub-agent has full tool access and will return its result. Use this to parallelize work or delegate focused subtasks.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "task": { "type": "string", "description": "Detailed task description for the sub-agent" },
+                            "model": { "type": "string", "description": "Optional: model to use (default: same as current)" }
+                        },
+                        "required": ["task"]
+                    }
+                }
             }
         ])
     }
@@ -368,7 +414,177 @@ impl Agent {
                     Err(e) => format!("Error moving '{}' to '{}': {}", src, dst, e),
                 }
             }
+            "search_files" => {
+                let pattern = args["pattern"].as_str().unwrap_or("*");
+                let dir = args["directory"].as_str().unwrap_or(".");
+                let mut results = Vec::new();
+                fn walk_glob(dir: &std::path::Path, pattern: &str, results: &mut Vec<String>, depth: usize) {
+                    if depth > 10 { return; }
+                    if let Ok(entries) = std::fs::read_dir(dir) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            let name = entry.file_name().to_string_lossy().into_owned();
+                            if path.is_dir() {
+                                if !name.starts_with('.') && name != "node_modules" && name != "target" {
+                                    walk_glob(&path, pattern, results, depth + 1);
+                                }
+                            } else {
+                                let matches = if pattern.contains('*') {
+                                    let pat = pattern.trim_start_matches("**/").replace('*', "");
+                                    name.ends_with(&pat) || pat.is_empty()
+                                } else {
+                                    name.contains(pattern)
+                                };
+                                if matches {
+                                    results.push(path.to_string_lossy().into_owned());
+                                }
+                            }
+                            if results.len() >= 100 { return; }
+                        }
+                    }
+                }
+                walk_glob(std::path::Path::new(dir), pattern, &mut results, 0);
+                if results.is_empty() {
+                    format!("No files matching '{}' found in '{}'", pattern, dir)
+                } else {
+                    results.join("\n")
+                }
+            }
+            "search_text" => {
+                let pattern = args["pattern"].as_str().unwrap_or("");
+                let dir = args["directory"].as_str().unwrap_or(".");
+                let file_pat = args["file_pattern"].as_str();
+                let mut results = Vec::new();
+                fn walk_search(dir: &std::path::Path, pattern: &str, file_pat: Option<&str>, results: &mut Vec<String>, depth: usize) {
+                    if depth > 10 { return; }
+                    if let Ok(entries) = std::fs::read_dir(dir) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            let name = entry.file_name().to_string_lossy().into_owned();
+                            if path.is_dir() {
+                                if !name.starts_with('.') && name != "node_modules" && name != "target" {
+                                    walk_search(&path, pattern, file_pat, results, depth + 1);
+                                }
+                            } else {
+                                let match_ext = file_pat.map_or(true, |fp| {
+                                    let fp = fp.trim_start_matches("**/").trim_start_matches('*');
+                                    name.ends_with(fp)
+                                });
+                                if match_ext {
+                                    if let Ok(content) = std::fs::read_to_string(&path) {
+                                        for (i, line) in content.lines().enumerate() {
+                                            if line.contains(pattern) {
+                                                results.push(format!("{}:{}:{}", path.to_string_lossy(), i + 1, line.trim()));
+                                                if results.len() >= 50 { return; }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if results.len() >= 50 { return; }
+                        }
+                    }
+                }
+                walk_search(std::path::Path::new(dir), pattern, file_pat, &mut results, 0);
+                if results.is_empty() {
+                    format!("No matches for '{}' in '{}'", pattern, dir)
+                } else {
+                    results.join("\n")
+                }
+            }
             _ => format!("Unknown tool: {}", name),
+        }
+    }
+
+    async fn spawn_sub_agent(&self, args: &serde_json::Value) -> String {
+        let task = args["task"].as_str().unwrap_or("");
+        if task.is_empty() {
+            return "Error: task description is required".to_string();
+        }
+
+        let (api_url, api_key_opt, default_model) = {
+            let cfg = self.config.lock().unwrap();
+            (cfg.api_url.clone(), cfg.api_key.clone(), cfg.model.clone())
+        };
+        let api_key = match &api_key_opt {
+            Some(k) => k.clone(),
+            None => return "Error: no API key configured".to_string(),
+        };
+        let model = args["model"].as_str().unwrap_or(&default_model).to_string();
+
+        let sub_prompt = format!(
+            "You are a focused sub-agent of OpenZax. Complete the following task precisely and return your result.\n\
+            You have full tool access: read_file, write_file, list_directory, execute_command, delete_file, create_directory, move_file, search_files, search_text.\n\
+            Be thorough but concise. Execute the task directly using your tools.\n\n\
+            TASK: {}", task
+        );
+
+        let sub_config = AgentConfig {
+            api_url: api_url.clone(),
+            api_key: Some(api_key.clone()),
+            model: model.clone(),
+            temperature: 0.3,
+            max_tokens: 4096,
+            system_prompt: Some(sub_prompt),
+        };
+        let sub_bus = EventBus::default();
+        let sub_agent = Agent::new(sub_config, sub_bus);
+
+        let _ = self.event_bus.publish(Event::AgentThinking {
+            agent_id: sub_agent.id(),
+            thought_text: format!("[Sub-Agent] Starting task: {}", &task[..task.len().min(80)]),
+            timestamp: Utc::now(),
+        });
+
+        let mut messages = vec![
+            serde_json::json!({"role": "user", "content": task}),
+        ];
+
+        let mut final_response = String::new();
+        for _round in 0..5 {
+            match sub_agent.stream_with_tools(&messages, &api_url, &api_key, &model, 0.3, 4096).await {
+                Ok((content, tool_calls)) => {
+                    if tool_calls.is_empty() {
+                        final_response = content;
+                        break;
+                    }
+                    messages.push(serde_json::json!({
+                        "role": "assistant",
+                        "content": &content,
+                        "tool_calls": tool_calls,
+                    }));
+                    for tc in &tool_calls {
+                        let tc_id = tc["id"].as_str().unwrap_or("");
+                        let tc_name = tc["function"]["name"].as_str().unwrap_or("");
+                        let tc_args_str = tc["function"]["arguments"].as_str().unwrap_or("{}");
+                        let parsed: serde_json::Value = serde_json::from_str(tc_args_str).unwrap_or_default();
+                        let result = Self::execute_tool(tc_name, &parsed).await;
+                        messages.push(serde_json::json!({
+                            "role": "tool",
+                            "tool_call_id": tc_id,
+                            "content": result
+                        }));
+                    }
+                }
+                Err(e) => {
+                    match sub_agent.stream_simple(&messages, &api_url, &api_key, &model, 0.3, 4096).await {
+                        Ok(content) => { final_response = content; break; }
+                        Err(_) => { final_response = format!("Sub-agent error: {}", e); break; }
+                    }
+                }
+            }
+        }
+
+        let _ = self.event_bus.publish(Event::AgentThinking {
+            agent_id: sub_agent.id(),
+            thought_text: "[Sub-Agent] Task completed".to_string(),
+            timestamp: Utc::now(),
+        });
+
+        if final_response.is_empty() {
+            "Sub-agent completed but returned no response".to_string()
+        } else {
+            final_response
         }
     }
 
@@ -405,8 +621,14 @@ impl Agent {
             .await?;
 
         if !response.status().is_success() {
+            let status = response.status();
             let err = response.text().await?;
-            return Err(Error::Agent(format!("LLM API error: {}", err)));
+            if status.as_u16() == 401 {
+                return Err(Error::Agent(
+                    "Invalid API key (401 Unauthorized). Check your key at https://openrouter.ai/keys and re-enter it with /connect".to_string()
+                ));
+            }
+            return Err(Error::Agent(format!("LLM API error ({}): {}", status, err)));
         }
 
         use tokio::io::AsyncBufReadExt;
@@ -492,6 +714,86 @@ impl Agent {
         Ok((full_content, tool_calls))
     }
 
+    async fn stream_simple(
+        &self,
+        messages: &[serde_json::Value],
+        api_url: &str,
+        api_key: &str,
+        model: &str,
+        temp: f32,
+        max_tok: usize,
+    ) -> Result<String> {
+        let request_body = serde_json::json!({
+            "model": model,
+            "messages": messages,
+            "temperature": temp,
+            "max_tokens": max_tok,
+            "stream": true,
+        });
+
+        let response = self
+            .client
+            .post(api_url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .header("HTTP-Referer", "https://openzax.dev")
+            .header("X-Title", "OpenZax")
+            .json(&request_body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let err = response.text().await?;
+            if status.as_u16() == 401 {
+                return Err(Error::Agent(
+                    "Invalid API key (401 Unauthorized). Check your key at https://openrouter.ai/keys and re-enter it with /connect".to_string()
+                ));
+            }
+            return Err(Error::Agent(format!("LLM API error ({}): {}", status, err)));
+        }
+
+        use tokio::io::AsyncBufReadExt;
+        let mut lines = tokio::io::BufReader::new(tokio_util::io::StreamReader::new(
+            response
+                .bytes_stream()
+                .map(|r: std::result::Result<bytes::Bytes, reqwest::Error>| {
+                    r.map_err(std::io::Error::other)
+                }),
+        ))
+        .lines();
+
+        let mut full_content = String::new();
+        while let Some(line) = lines.next_line().await? {
+            if !line.starts_with("data: ") {
+                continue;
+            }
+            let data = &line[6..];
+            if data == "[DONE]" {
+                break;
+            }
+            let json: serde_json::Value = match serde_json::from_str(data) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            if let Some(content) = json["choices"][0]["delta"]["content"].as_str() {
+                if !content.is_empty() {
+                    full_content.push_str(content);
+                    self.event_bus.publish(Event::AgentTokenStream {
+                        agent_id: self.id,
+                        token: content.to_string(),
+                        finish_reason: json["choices"][0]["finish_reason"]
+                            .as_str()
+                            .map(|s| s.to_string()),
+                        timestamp: Utc::now(),
+                    })?;
+                }
+            }
+        }
+
+        Ok(full_content)
+    }
+
     pub async fn process_streaming(&self, prompt: &str) -> Result<()> {
         self.event_bus.publish(Event::AgentThinking {
             agent_id: self.id,
@@ -513,70 +815,146 @@ impl Agent {
         let api_key = api_key
             .filter(|k| !k.is_empty())
             .ok_or_else(|| Error::Agent(
-                "No API key set. Get a FREE key at https://openrouter.ai/keys then set OPENROUTER_API_KEY".to_string()
+                "No API key set. Get a FREE key at https://openrouter.ai/keys then use /connect to add it".to_string()
             ))?;
 
         let mut messages = self.build_messages(prompt);
 
-        // Tool calling loop (max 8 rounds)
-        for _round in 0..8 {
-            let (content, tool_calls) = self
-                .stream_with_tools(&messages, &api_url, &api_key, &model, temp, max_tok)
-                .await?;
+        // Try with tools first; fall back to simple streaming if tools aren't supported
+        let first_result = self
+            .stream_with_tools(&messages, &api_url, &api_key, &model, temp, max_tok)
+            .await;
 
-            if tool_calls.is_empty() {
-                // No tool calls - done
-                break;
-            }
+        match first_result {
+            Ok((content, tool_calls)) => {
+                if tool_calls.is_empty() {
+                    self.event_bus.publish(Event::AgentOutput {
+                        agent_id: self.id,
+                        content: String::new(),
+                        timestamp: Utc::now(),
+                    })?;
+                    return Ok(());
+                }
 
-            // Add assistant message with tool calls
-            messages.push(serde_json::json!({
-                "role": "assistant",
-                "content": if content.is_empty() { serde_json::Value::Null } else { serde_json::json!(content) },
-                "tool_calls": tool_calls,
-            }));
-
-            // Execute each tool and add results
-            for tc in &tool_calls {
-                let tool_name = tc["function"]["name"].as_str().unwrap_or("unknown");
-                let args_str = tc["function"]["arguments"].as_str().unwrap_or("{}");
-                let tc_id = tc["id"].as_str().unwrap_or("call_0");
-                let args: serde_json::Value =
-                    serde_json::from_str(args_str).unwrap_or(serde_json::json!({}));
-
-                // Notify UI about tool execution
-                let preview = if args_str.len() > 80 {
-                    format!("{}...", &args_str[..80])
-                } else {
-                    args_str.to_string()
-                };
-                self.event_bus.publish(Event::AgentTokenStream {
-                    agent_id: self.id,
-                    token: format!("\n[tool] {} {}\n", tool_name, preview),
-                    finish_reason: None,
-                    timestamp: Utc::now(),
-                })?;
-
-                let result = Self::execute_tool(tool_name, &args).await;
-
-                // Show truncated result
-                let result_preview = if result.len() > 500 {
-                    format!("{}...\n[{} chars total]", &result[..500], result.len())
-                } else {
-                    result.clone()
-                };
-                self.event_bus.publish(Event::AgentTokenStream {
-                    agent_id: self.id,
-                    token: format!("```\n{}\n```\n\n", result_preview),
-                    finish_reason: None,
-                    timestamp: Utc::now(),
-                })?;
-
+                // Tool calling loop (max 8 rounds)
                 messages.push(serde_json::json!({
-                    "role": "tool",
-                    "tool_call_id": tc_id,
-                    "content": result,
+                    "role": "assistant",
+                    "content": if content.is_empty() { serde_json::Value::Null } else { serde_json::json!(content) },
+                    "tool_calls": tool_calls,
                 }));
+
+                for tc in &tool_calls {
+                    let tool_name = tc["function"]["name"].as_str().unwrap_or("unknown");
+                    let args_str = tc["function"]["arguments"].as_str().unwrap_or("{}");
+                    let tc_id = tc["id"].as_str().unwrap_or("call_0");
+                    let args: serde_json::Value =
+                        serde_json::from_str(args_str).unwrap_or(serde_json::json!({}));
+
+                    let preview = if args_str.len() > 80 {
+                        format!("{}...", &args_str[..80])
+                    } else {
+                        args_str.to_string()
+                    };
+                    self.event_bus.publish(Event::AgentTokenStream {
+                        agent_id: self.id,
+                        token: format!("\n[tool] {} {}\n", tool_name, preview),
+                        finish_reason: None,
+                        timestamp: Utc::now(),
+                    })?;
+
+                    let result = if tool_name == "spawn_agent" {
+                        self.spawn_sub_agent(&args).await
+                    } else {
+                        Self::execute_tool(tool_name, &args).await
+                    };
+                    let result_preview = if result.len() > 500 {
+                        format!("{}...\n[{} chars total]", &result[..500], result.len())
+                    } else {
+                        result.clone()
+                    };
+                    self.event_bus.publish(Event::AgentTokenStream {
+                        agent_id: self.id,
+                        token: format!("```\n{}\n```\n\n", result_preview),
+                        finish_reason: None,
+                        timestamp: Utc::now(),
+                    })?;
+
+                    messages.push(serde_json::json!({
+                        "role": "tool",
+                        "tool_call_id": tc_id,
+                        "content": result,
+                    }));
+                }
+
+                // Continue tool loop for remaining rounds
+                for _round in 1..8 {
+                    let (content, tool_calls) = self
+                        .stream_with_tools(&messages, &api_url, &api_key, &model, temp, max_tok)
+                        .await?;
+
+                    if tool_calls.is_empty() {
+                        break;
+                    }
+
+                    messages.push(serde_json::json!({
+                        "role": "assistant",
+                        "content": if content.is_empty() { serde_json::Value::Null } else { serde_json::json!(content) },
+                        "tool_calls": tool_calls,
+                    }));
+
+                    for tc in &tool_calls {
+                        let tool_name = tc["function"]["name"].as_str().unwrap_or("unknown");
+                        let args_str = tc["function"]["arguments"].as_str().unwrap_or("{}");
+                        let tc_id = tc["id"].as_str().unwrap_or("call_0");
+                        let args: serde_json::Value =
+                            serde_json::from_str(args_str).unwrap_or(serde_json::json!({}));
+
+                        let preview = if args_str.len() > 80 {
+                            format!("{}...", &args_str[..80])
+                        } else {
+                            args_str.to_string()
+                        };
+                        self.event_bus.publish(Event::AgentTokenStream {
+                            agent_id: self.id,
+                            token: format!("\n[tool] {} {}\n", tool_name, preview),
+                            finish_reason: None,
+                            timestamp: Utc::now(),
+                        })?;
+
+                        let result = if tool_name == "spawn_agent" {
+                            self.spawn_sub_agent(&args).await
+                        } else {
+                            Self::execute_tool(tool_name, &args).await
+                        };
+                        let result_preview = if result.len() > 500 {
+                            format!("{}...\n[{} chars total]", &result[..500], result.len())
+                        } else {
+                            result.clone()
+                        };
+                        self.event_bus.publish(Event::AgentTokenStream {
+                            agent_id: self.id,
+                            token: format!("```\n{}\n```\n\n", result_preview),
+                            finish_reason: None,
+                            timestamp: Utc::now(),
+                        })?;
+
+                        messages.push(serde_json::json!({
+                            "role": "tool",
+                            "tool_call_id": tc_id,
+                            "content": result,
+                        }));
+                    }
+                }
+            }
+            Err(e) => {
+                let err_str = format!("{}", e);
+                // 401 = invalid key, propagate immediately
+                if err_str.contains("401") {
+                    return Err(e);
+                }
+                // For other errors (e.g. model doesn't support tools), fall back to simple streaming
+                self.stream_simple(&messages, &api_url, &api_key, &model, temp, max_tok)
+                    .await?;
             }
         }
 

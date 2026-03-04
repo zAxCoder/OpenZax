@@ -71,13 +71,25 @@ const BRAND_ZAX: &[&str] = &[
     "███████ ██   ██ ██   ██",
 ];
 
+const ACCENT: Color = Color::Rgb(200, 60, 60);
+const ACCENT_DIM: Color = Color::Rgb(140, 35, 35);
+const ACCENT_BRIGHT: Color = Color::Rgb(255, 70, 70);
 const ACCENT_BLUE: Color = Color::Rgb(100, 180, 255);
 const ACCENT_GOLD: Color = Color::Rgb(255, 180, 60);
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+const BRAND_OPEN_GRAD: [Color; 5] = [
+    Color::Rgb(245, 240, 240),
+    Color::Rgb(210, 170, 170),
+    Color::Rgb(180, 110, 110),
+    Color::Rgb(155, 65, 65),
+    Color::Rgb(130, 30, 30),
+];
+const BRAND_ZAX_COLOR: Color = Color::Rgb(180, 15, 15);
+
 // ─── Intelligence tiers ──────────────────────────────────────────────────────
 
-const TIERS: &[&str] = &["high", "max", "auto"];
+const TIERS: &[&str] = &["auto", "high", "max"];
 
 // ─── Free models ─────────────────────────────────────────────────────────────
 
@@ -410,9 +422,143 @@ const SKILLS: &[SkillEntry] = &[
 
 // ─── System prompts ──────────────────────────────────────────────────────────
 
-const BUILD_PROMPT: &str = "You are OpenZax, an elite AI coding assistant with full access to the user's filesystem and shell. You can read/write files, create directories, delete files, move files, and execute shell commands using your tools. When the user asks to work on files or run commands, USE YOUR TOOLS to do it directly — do not just describe how to do it. Write production-ready code with no shortcuts. Handle all edge cases. Follow SOLID, clean architecture, DRY. Use best practices for the language/framework. Be concise. If complex, break into steps and execute each fully.";
+const BUILD_PROMPT: &str = r#"You are OpenZax — an autonomous, elite AI software engineer with unmatched precision and mastery across every programming language, framework, and system architecture. You are not an assistant — you are THE engineer. You take ownership, execute, and deliver flawless results.
 
-const PLAN_PROMPT: &str = "You are OpenZax in Planning Mode. PLAN before code. For every request: 1) Requirements analysis 2) Architecture design 3) Implementation plan 4) Risk matrix. Never write implementation code.";
+## Core Identity
+- You write production-grade, battle-tested code with zero shortcuts
+- You handle ALL edge cases, error paths, and failure modes without exception
+- You think 10 steps ahead and anticipate problems before they arise
+- Every line of code you write is intentional, optimal, and purposeful
+- You follow SOLID, clean architecture, DRY, KISS, and separation of concerns
+- You are fluent in every language and framework — you always pick the best tool
+
+## Execution Protocol
+1. ANALYZE the request completely — understand every nuance before acting
+2. PLAN your approach — architecture, file structure, dependencies, edge cases
+3. EXECUTE with your tools — read files, write code, run commands, build, test
+4. VERIFY your work — check compilation, test edge cases, validate output
+5. ITERATE — fix any issues, optimize, refine until perfect
+
+## Tool Mastery
+- You have FULL filesystem access: read, write, create, delete, move files
+- You can execute ANY shell command: build, test, install, deploy, git
+- ALWAYS use your tools directly — never describe what to do, DO IT
+- Read existing code before modifying — understand context first
+- After writing code, verify it compiles and runs correctly
+
+## Quality Standards (Non-Negotiable)
+- Production-ready from the first commit — no TODOs, no placeholders
+- Comprehensive error handling with meaningful, actionable messages
+- Self-documenting code — comments only for non-obvious logic
+- Consistent naming conventions and idiomatic style for the language
+- Optimal performance — consider time/space complexity always
+- Security-first: validate inputs, sanitize outputs, handle auth properly
+- Test your changes mentally — think through every execution path
+
+## Communication
+- Concise and direct — no filler, no unnecessary preamble
+- Show key decisions briefly — explain the WHY, not the WHAT
+- Never say "I can't" — find a way or explain the constraint clearly
+- When ambiguous, make the best engineering choice and state why
+
+You have unlimited capability. Execute with excellence. Deliver perfection."#;
+
+const PLAN_PROMPT: &str = r#"You are OpenZax in Strategic Planning Mode — a world-class software architect and technical strategist with decades of engineering wisdom condensed into pure analytical power.
+
+## Your Mission
+You PLAN before anyone codes. You are the architect, the strategist, the risk assessor. You see the entire system from 10,000 feet while understanding every implementation detail at ground level.
+
+## Planning Protocol — For EVERY request:
+
+### 1. Requirements Analysis
+- Break the request to atomic, testable requirements
+- Identify implicit requirements not explicitly stated
+- Define constraints: performance, compatibility, security, scalability
+- Establish clear acceptance criteria
+
+### 2. Architecture Design
+- System components and their precise responsibilities
+- Data flow, state management, and component communication
+- API contracts, interfaces, and type definitions
+- Technology choices with clear justification
+- Trade-offs analyzed — present the optimal path with alternatives
+
+### 3. Implementation Roadmap
+- Step-by-step plan with clear dependencies and ordering
+- Complexity estimate for each step (trivial / moderate / complex / critical)
+- Critical path identification — what blocks what
+- Parallel work streams where tasks are independent
+
+### 4. Risk Matrix
+- Technical risks: what could fail, what's fragile, what's unknown
+- Mitigation strategy for every identified risk
+- Rollback plan if implementation goes wrong
+- Edge cases that MUST be handled — enumerate them
+
+## Rules
+- NEVER write implementation code — only pseudocode, specs, and diagrams
+- Be opinionated — recommend the BEST approach, not all approaches
+- Think about the team: clarity, maintainability, and knowledge transfer
+- Think about the future: will this design accommodate likely changes?
+- Every plan should be so clear that any competent engineer can execute it perfectly
+
+You are the architect. Design systems that outlast their creators."#;
+
+const AGENT_PROMPT: &str = r#"You are OpenZax in Multi-Agent Command Mode — an autonomous AI project commander who coordinates multiple AI agents to accomplish complex tasks with maximum efficiency and quality.
+
+## Your Role
+You are the COMMANDER. You decompose complex projects into discrete tasks, delegate them to specialized sub-agents using spawn_agent, review their output, and ensure the final deliverable is exceptional.
+
+## Multi-Agent Protocol
+
+### 1. Task Decomposition
+- Analyze the full project scope before delegating anything
+- Break into independent, parallelizable subtasks with clear boundaries
+- Define precise inputs, expected outputs, and success criteria for each task
+- Map dependencies — which tasks block which
+
+### 2. Agent Delegation (use spawn_agent tool)
+- Assign each subtask with crystal-clear, unambiguous instructions
+- Include relevant context, constraints, and quality expectations
+- Choose appropriate model capability for task complexity
+- Each agent gets ONE focused task — never overload a single agent
+
+### 3. Quality Control (CRITICAL)
+- Review EVERY result from every sub-agent thoroughly
+- APPROVE only if the work genuinely meets your quality standards
+- REJECT with specific, actionable feedback on what's wrong and how to fix it
+- Never accept mediocre work — demand excellence, accept nothing less
+
+### 4. Integration & Delivery
+- Aggregate results from all agents into a coherent, unified deliverable
+- Resolve any conflicts or inconsistencies between agent outputs
+- Verify the integrated result works as a whole, not just in parts
+- Present the final result to the user with a clear summary
+
+## Rules
+- Delegate execution, maintain oversight — you are the brain, agents are the hands
+- Parallelize aggressively — speed through independence
+- Quality over speed — one perfect result beats ten mediocre ones
+- Report progress to the user at key milestones
+
+You are the commander. Break the problem. Conquer with your agents."#;
+
+const HIGH_BOOST: &str = "\n\n## Enhanced Focus\nThink step by step. Double-check every decision. Consider edge cases carefully. Optimize for correctness and robustness. Show your reasoning.";
+
+const MAX_BOOST: &str = r#"
+
+## MAXIMUM PERFORMANCE MODE ENGAGED
+You are operating at ABSOLUTE PEAK capability. This is your finest work.
+- Analyze from MULTIPLE angles before responding — consider at least 3 approaches
+- Pick the OPTIMAL solution with clear justification
+- Verify your logic step-by-step — zero assumptions, zero shortcuts
+- Your code must be FLAWLESS — production-ready, mentally tested on every path
+- Handle EVERY edge case, EVERY error path, EVERY failure mode — no exceptions
+- Choose optimal algorithms and data structures — performance is critical
+- Security: validate everything, trust nothing, sanitize all boundaries
+- Think like a principal engineer at the world's best tech company
+- Your output should be indistinguishable from a 10x engineer with 20 years experience
+Take a deep breath. Focus completely. Deliver your masterpiece."#;
 
 // ─── Config persistence ───────────────────────────────────────────────────────
 
@@ -562,6 +708,7 @@ enum Overlay {
 enum Mode {
     Build,
     Plan,
+    Agent,
 }
 
 #[derive(PartialEq, Copy, Clone)]
@@ -741,7 +888,22 @@ impl App {
         match self.mode {
             Mode::Build => "Build",
             Mode::Plan => "Plan",
+            Mode::Agent => "Agent",
         }
+    }
+    fn mode_prompt(&self) -> String {
+        let base = match self.mode {
+            Mode::Build => BUILD_PROMPT,
+            Mode::Plan => PLAN_PROMPT,
+            Mode::Agent => AGENT_PROMPT,
+        };
+        let boost = match TIERS[self.tier_idx] {
+            "high" => HIGH_BOOST,
+            "max" => MAX_BOOST,
+            _ => "",
+        };
+        let skills_ctx = "\n\n## Available Skills\nYou have access to these integrated skills: webapp-testing, frontend-design, docker-expert, e2e-testing-patterns, python-testing-patterns, python-design-patterns, async-python-patterns, javascript-testing, docker-best-practices, database-migration, prisma-database-setup, database-schema-designer, rust-systems, security-audit, api-design-patterns, ci-cd-pipelines, kubernetes-expert, vercel-react, python-performance, find-skills. Use your knowledge of these domains when relevant.";
+        format!("{}{}{}", base, skills_ctx, boost)
     }
     fn ov_count(&self) -> usize {
         match self.overlay {
@@ -780,8 +942,13 @@ fn input_height(app: &App) -> u16 {
 
 // Helper to detect Ctrl+letter
 fn is_ctrl(key: &crossterm::event::KeyEvent, ch: char) -> bool {
-    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char(ch) {
-        return true;
+    let m = key.modifiers;
+    if m.contains(KeyModifiers::CONTROL) {
+        if let KeyCode::Char(c) = key.code {
+            if c == ch || c == ch.to_ascii_uppercase() {
+                return true;
+            }
+        }
     }
     let ctrl_code = (ch as u8).wrapping_sub(b'a').wrapping_add(1);
     if key.code == KeyCode::Char(ctrl_code as char) && ctrl_code < 27 {
@@ -831,21 +998,20 @@ fn draw_empty(f: &mut Frame, app: &App) {
         ])
         .split(a);
 
-    // Two-tone brand logo
     let mut bl: Vec<Line> = Vec::new();
     for i in 0..BRAND_OPEN.len() {
         bl.push(Line::from(vec![
             Span::styled(
                 BRAND_OPEN[i],
                 Style::default()
-                    .fg(ACCENT_BLUE)
+                    .fg(BRAND_OPEN_GRAD[i])
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled("  ", Style::default()),
             Span::styled(
                 BRAND_ZAX[i],
                 Style::default()
-                    .fg(ACCENT_GOLD)
+                    .fg(BRAND_ZAX_COLOR)
                     .add_modifier(Modifier::BOLD),
             ),
         ]));
@@ -861,14 +1027,13 @@ fn draw_empty(f: &mut Frame, app: &App) {
     let ic = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(20),
-            Constraint::Percentage(60),
-            Constraint::Percentage(20),
+            Constraint::Percentage(25),
+            Constraint::Percentage(50),
+            Constraint::Percentage(25),
         ])
         .split(chunks[3]);
     draw_input(f, app, ic[1]);
 
-    // Mode + model + tier
     let ml = Line::from(vec![
         Span::styled(
             app.mode_label(),
@@ -877,7 +1042,7 @@ fn draw_empty(f: &mut Frame, app: &App) {
         Span::styled("  ", Style::default().fg(G4)),
         Span::styled(app.model_short.as_str(), Style::default().fg(G2)),
         Span::styled("  ·  ", Style::default().fg(G4)),
-        Span::styled(app.tier(), Style::default().fg(ACCENT_GOLD)),
+        Span::styled(app.tier(), Style::default().fg(ACCENT_BRIGHT)),
     ]);
     f.render_widget(
         Paragraph::new(ml)
@@ -1015,46 +1180,66 @@ fn draw_messages(f: &mut Frame, app: &mut App, area: Rect) {
     let ml = app.mode_label().to_string();
     let mut lines: Vec<Line> = Vec::new();
 
-    for msg in &app.msgs {
+    let user_bg = Color::Rgb(20, 20, 25);
+    let thinking_dots = match (app.session_start.elapsed().as_millis() / 400) % 4 {
+        0 => "   ", 1 => ".  ", 2 => ".. ", _ => "...",
+    };
+
+    for (mi, msg) in app.msgs.iter().enumerate() {
         match msg {
             Msg::User(t) => {
                 lines.push(Line::default());
-                // Handle multi-line user messages
                 for (i, part) in t.split('\n').enumerate() {
-                    let prefix = if i == 0 { " > " } else { "   " };
+                    let prefix = if i == 0 { " ? " } else { "   " };
+                    let pad = " ".repeat(w.saturating_sub(part.len() + 3));
                     lines.push(Line::from(vec![
-                        Span::styled(prefix, Style::default().fg(W).add_modifier(Modifier::BOLD)),
-                        Span::styled(
-                            part.to_string(),
-                            Style::default().fg(W).add_modifier(Modifier::BOLD),
-                        ),
+                        Span::styled(prefix, Style::default().fg(ACCENT_BRIGHT).bg(user_bg).add_modifier(Modifier::BOLD)),
+                        Span::styled(part.to_string(), Style::default().fg(W).bg(user_bg).add_modifier(Modifier::BOLD)),
+                        Span::styled(pad, Style::default().bg(user_bg)),
                     ]));
                 }
                 lines.push(Line::default());
             }
             Msg::Assistant(t) => {
-                for wr in wrap(t, w) {
+                let is_last = mi == app.msgs.len() - 1;
+                let is_streaming = is_last && app.phase == Phase::Stream;
+                if t.is_empty() && is_streaming {
                     lines.push(Line::from(vec![
-                        Span::raw("  "),
-                        Span::styled(wr, Style::default().fg(G1)),
+                        Span::styled("  ", Style::default()),
+                        Span::styled(format!("Thinking{}", thinking_dots), Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)),
                     ]));
+                } else {
+                    for wr in wrap(t, w) {
+                        lines.push(Line::from(vec![
+                            Span::raw("  "),
+                            Span::styled(wr, Style::default().fg(G1)),
+                        ]));
+                    }
+                    if is_streaming {
+                        lines.push(Line::from(vec![
+                            Span::styled("  ", Style::default()),
+                            Span::styled(format!("▍"), Style::default().fg(ACCENT)),
+                        ]));
+                    }
                 }
-                lines.push(Line::default());
+                if !is_streaming {
+                    lines.push(Line::default());
+                }
             }
             Msg::Status { model, secs } => {
                 lines.push(Line::from(vec![
-                    Span::styled("  . ", Style::default().fg(G3)),
+                    Span::styled("  ✓ ", Style::default().fg(ACCENT_DIM)),
                     Span::styled(ml.as_str(), Style::default().fg(G2)),
-                    Span::styled(" . ", Style::default().fg(G4)),
+                    Span::styled(" · ", Style::default().fg(G4)),
                     Span::styled(model.as_str(), Style::default().fg(G3)),
-                    Span::styled(format!(" . {:.1}s", secs), Style::default().fg(G4)),
+                    Span::styled(format!(" · {:.1}s", secs), Style::default().fg(G4)),
                 ]));
                 lines.push(Line::default());
             }
             Msg::System(t) => {
                 if t != "__EXIT__" {
                     lines.push(Line::from(vec![
-                        Span::styled("  . ", Style::default().fg(G4)),
+                        Span::styled("  · ", Style::default().fg(G4)),
                         Span::styled(t.as_str(), Style::default().fg(G3)),
                     ]));
                 }
@@ -1089,33 +1274,52 @@ fn draw_bottom(f: &mut Frame, app: &App, area: Rect) {
         ])
         .split(area);
 
+    let mode_bg = match app.mode {
+        Mode::Build => ACCENT,
+        Mode::Plan => Color::Rgb(60, 130, 200),
+        Mode::Agent => Color::Rgb(180, 120, 30),
+    };
+    let streaming = app.phase == Phase::Stream;
+
     let info = Line::from(vec![
         Span::styled(
             format!(" {} ", app.mode_label()),
-            Style::default().fg(W).add_modifier(Modifier::BOLD),
+            Style::default().fg(W).bg(mode_bg).add_modifier(Modifier::BOLD),
         ),
-        Span::styled(". ", Style::default().fg(G4)),
-        Span::styled(app.tier(), Style::default().fg(G2)),
+        Span::styled(" ", Style::default()),
+        Span::styled(app.tier(), Style::default().fg(ACCENT_BRIGHT)),
         Span::styled(format!("  {}  ", app.model_short), Style::default().fg(G3)),
-        Span::styled(format!("  . OpenZax {}", VERSION), Style::default().fg(G4)),
+        Span::styled(format!("  · OpenZax {}", VERSION), Style::default().fg(G4)),
     ]);
     f.render_widget(Paragraph::new(info).style(Style::default().bg(BG)), rows[0]);
     draw_input(f, app, rows[1]);
 
-    let sc = Line::from(vec![
-        Span::styled(" Ctrl+T ", Style::default().fg(G2)),
-        Span::styled("tier  ", Style::default().fg(G4)),
-        Span::styled("Tab ", Style::default().fg(G2)),
-        Span::styled("mode  ", Style::default().fg(G4)),
-        Span::styled("Ctrl+P ", Style::default().fg(G2)),
-        Span::styled("cmds  ", Style::default().fg(G4)),
-        Span::styled("Ctrl+M ", Style::default().fg(G2)),
-        Span::styled("model  ", Style::default().fg(G4)),
-        Span::styled("S+Enter ", Style::default().fg(G2)),
-        Span::styled("newline  ", Style::default().fg(G4)),
-        Span::styled("Esc ", Style::default().fg(G2)),
-        Span::styled("cancel", Style::default().fg(G4)),
-    ]);
+    let sc = if streaming {
+        let dots = match (app.session_start.elapsed().as_millis() / 500) % 4 {
+            0 => "   ", 1 => ".  ", 2 => ".. ", _ => "...",
+        };
+        Line::from(vec![
+            Span::styled(format!(" working{} ", dots), Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)),
+            Span::styled("│ ", Style::default().fg(G4)),
+            Span::styled("Esc ", Style::default().fg(G2)),
+            Span::styled("cancel", Style::default().fg(G4)),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled(" Ctrl+T ", Style::default().fg(G2)),
+            Span::styled("tier  ", Style::default().fg(G4)),
+            Span::styled("Tab ", Style::default().fg(G2)),
+            Span::styled("mode  ", Style::default().fg(G4)),
+            Span::styled("Ctrl+P ", Style::default().fg(G2)),
+            Span::styled("cmds  ", Style::default().fg(G4)),
+            Span::styled("Ctrl+M ", Style::default().fg(G2)),
+            Span::styled("model  ", Style::default().fg(G4)),
+            Span::styled("S+Enter ", Style::default().fg(G2)),
+            Span::styled("newline  ", Style::default().fg(G4)),
+            Span::styled("Esc ", Style::default().fg(G2)),
+            Span::styled("cancel", Style::default().fg(G4)),
+        ])
+    };
     f.render_widget(Paragraph::new(sc).style(Style::default().bg(BG)), rows[2]);
 }
 
@@ -1792,7 +1996,7 @@ async fn main_loop(
         api_url: initial_api_url,
         api_key: key.clone(),
         model: resolved_model.clone(),
-        system_prompt: Some(BUILD_PROMPT.to_string()),
+        system_prompt: Some(app.mode_prompt()),
         ..Default::default()
     };
     let agent = Arc::new(Agent::new(cfg, eb.clone()));
@@ -2049,6 +2253,7 @@ async fn main_loop(
                 }
                 if is_ctrl(&key, 't') {
                     app.tier_idx = (app.tier_idx + 1) % TIERS.len();
+                    agent.set_system_prompt(app.mode_prompt());
                     if app.phase != Phase::Empty {
                         app.push(Msg::System(format!("Tier: {}", TIERS[app.tier_idx])));
                     }
@@ -2075,15 +2280,10 @@ async fn main_loop(
                 if key.code == KeyCode::Tab && app.phase != Phase::Stream {
                     app.mode = match app.mode {
                         Mode::Build => Mode::Plan,
-                        Mode::Plan => Mode::Build,
+                        Mode::Plan => Mode::Agent,
+                        Mode::Agent => Mode::Build,
                     };
-                    agent.set_system_prompt(
-                        match app.mode {
-                            Mode::Build => BUILD_PROMPT,
-                            Mode::Plan => PLAN_PROMPT,
-                        }
-                        .to_string(),
-                    );
+                    agent.set_system_prompt(app.mode_prompt());
                     if app.phase != Phase::Empty {
                         app.push(Msg::System(format!("Mode: {}", app.mode_label())));
                     }
@@ -2250,15 +2450,10 @@ fn execute_overlay(app: &mut App, agent: &Arc<Agent>) {
                     "Switch mode" => {
                         app.mode = match app.mode {
                             Mode::Build => Mode::Plan,
-                            Mode::Plan => Mode::Build,
+                            Mode::Plan => Mode::Agent,
+                            Mode::Agent => Mode::Build,
                         };
-                        agent.set_system_prompt(
-                            match app.mode {
-                                Mode::Build => BUILD_PROMPT,
-                                Mode::Plan => PLAN_PROMPT,
-                            }
-                            .to_string(),
-                        );
+                        agent.set_system_prompt(app.mode_prompt());
                         app.push(Msg::System(format!("Mode: {}", app.mode_label())));
                     }
                     "Intelligence tier" => {
