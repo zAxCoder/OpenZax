@@ -1389,7 +1389,7 @@ fn input_height_with_width(app: &App, width: u16) -> u16 {
         if char_count == 0 {
             total_lines += 1;
         } else {
-            total_lines += (char_count + usable - 1) / usable;
+            total_lines += char_count.div_ceil(usable);
         }
     }
     ((total_lines.max(3) + 2) as u16).min(12)
@@ -2504,16 +2504,14 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
                 cur.push(' ');
                 cur.push_str(w);
                 cl += 1 + wl;
+            } else if wl <= width {
+                out.push(std::mem::take(&mut cur));
+                cur.push_str(w);
+                cl = wl;
             } else {
-                if wl <= width {
-                    out.push(std::mem::take(&mut cur));
-                    cur.push_str(w);
-                    cl = wl;
-                } else {
-                    cur.push(' ');
-                    cl += 1;
-                    push_breaking(&mut out, &mut cur, &mut cl, w, width);
-                }
+                cur.push(' ');
+                cl += 1;
+                push_breaking(&mut out, &mut cur, &mut cl, w, width);
             }
         }
         if !cur.is_empty() {
